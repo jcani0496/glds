@@ -1,61 +1,48 @@
-import { Link, useLocation } from "react-router-dom";
-import {
-  Home,
-  Sparkles,
-  Mail,
-  Boxes,
-  Users,
-  Star,
-  ShoppingCart,
-} from "lucide-react";
+import { NavLink } from "react-router-dom";
+import { Home, Grid2X2 as Grid, Users, Phone, ShoppingCart } from "lucide-react";
 
 export default function Dock() {
-  const { pathname } = useLocation();
-
   const items = [
-    { to: "/", label: "Home", icon: Home },
-    { to: "/about", label: "Acerca de", icon: Sparkles },
-    { to: "/contact", label: "Contáctanos", icon: Mail },
-    { to: "/catalog", label: "Catálogo", icon: Boxes },
-    { to: "/clients", label: "Clientes", icon: Users },
-    { to: "/featured", label: "Destacados", icon: Star },
-    { to: "/cart", label: "Carrito", icon: ShoppingCart },
+    { to: "/", label: "Inicio", Icon: Home },
+    { to: "/catalog", label: "Catálogo", Icon: Grid },
+    { to: "/clients", label: "Clientes", Icon: Users },
+    { to: "/contact", label: "Contacto", Icon: Phone },
+    { to: "/cart", label: "Cotizar", Icon: ShoppingCart },
   ];
 
+  const baseBtn =
+    "inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm " +
+    "bg-zinc-900/60 hover:bg-zinc-900/80 text-zinc-200/90 hover:text-white " +
+    "border border-white/10 shadow-[inset_0_1px_0_0_rgba(255,255,255,.04)] " +
+    "transition-colors focus:outline-none focus-visible:ring-2 " +
+    "focus-visible:ring-violet-400/70 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent";
+
   return (
-    <nav
-      aria-label="Secciones del sitio"
-      className="fixed top-4 left-1/2 -translate-x-1/2 z-50 pointer-events-none"
+    <div
+      className="pointer-events-auto fixed bottom-6 left-1/2 z-40 -translate-x-1/2"
+      aria-label="Navegación principal"
     >
-      <div
-        className="
-          pointer-events-auto inline-flex items-center gap-2
-          rounded-2xl px-3 py-2
-          bg-white/[.06] border border-white/10 backdrop-blur-md
-          shadow-[0_10px_40px_rgba(0,0,0,.25)]"
+      <nav
+        className="backdrop-blur-md bg-zinc-900/30 border border-white/10 rounded-2xl p-1.5
+                   shadow-[0_8px_30px_rgba(0,0,0,.35)]"
       >
-        {items.map(({ to, label, icon: Icon }) => {
-          const active =
-            pathname === to ||
-            (to !== "/" && pathname.startsWith(to));
-          return (
-            <Link
-              key={to}
-              to={to}
-              aria-current={active ? "page" : undefined}
-              className={[
-                "group flex items-center gap-2 rounded-xl px-3 py-2 text-sm",
-                active
-                  ? "bg-white/[.08] text-white shadow-glow"
-                  : "text-white/80 hover:text-white hover:bg-white/[.06]",
-              ].join(" ")}
-            >
-              <Icon className="w-4 h-4 opacity-90" />
-              <span className="hidden sm:inline">{label}</span>
-            </Link>
-          );
-        })}
-      </div>
-    </nav>
+        {/* Más separación entre botones */}
+        <ul className="flex items-center gap-3 md:gap-4">
+          {items.map(({ to, label, Icon }) => (
+            <li key={to} className="shrink-0">
+              <NavLink
+                to={to}
+                className={({ isActive }) =>
+                  `${baseBtn} ${isActive ? "ring-2 ring-violet-400/70" : ""}`
+                }
+              >
+                <Icon className="h-4 w-4" aria-hidden="true" />
+                <span>{label}</span>
+              </NavLink>
+            </li>
+          ))}
+        </ul>
+      </nav>
+    </div>
   );
 }
