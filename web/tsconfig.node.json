@@ -1,0 +1,16 @@
+{
+  "compilerOptions": {
+    "composite": true,
+    "allowJs": true,
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "skipLibCheck": true,
+    "types": ["node"],
+    "outDir": "./.tsbuild"   // <- emite aquí, no toca vite.config.js original
+  },
+  "include": [
+    "vite.config.*",
+    "vitest.config.*",
+    "scripts/**/*"
+  ]
+}

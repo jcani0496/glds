@@ -1,0 +1,39 @@
+# macOS
+.DS_Store
+
+# IDE
+.vscode/
+.idea/
+
+# Env files
+*.env
+*.env.*
+!.env.example
+
+# Logs & temp
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+*.log
+
+# SQLite / DB / PDFs generados
+*.sqlite
+*.db
+/server/*.sqlite
+/server/storage/
+/server/output/
+/server/tmp/
+/server/quotes/*.pdf
+
+# Node
+node_modules/
+**/node_modules/
+
+# Vite / build
+/web/dist/
+/web/.vite/
+/web/.cache/
+
+# Uploads (si existen)
+server/public/uploads/
