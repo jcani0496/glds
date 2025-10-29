@@ -11,7 +11,7 @@ const firstTime = !fs.existsSync(dbPath);
 export const db = new Database(dbPath);
 db.pragma('journal_mode = WAL');
 
-/* Tablas base + nuevas tablas de colores */
+/* Tablas base + nuevas tablas de colores + metadata/eventos/drafts para cotizaciones */
 db.exec(`
 CREATE TABLE IF NOT EXISTS admins (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -48,6 +48,12 @@ CREATE TABLE IF NOT EXISTS quotes (
   customer_company TEXT,
   notes TEXT,
   status TEXT DEFAULT 'pending',
+  status_updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+  follow_up_at TEXT,
+  expected_delivery TEXT,
+  tracking_token TEXT UNIQUE,
+  reminder_count INTEGER DEFAULT 0,
+  customer_portal_last_seen TEXT,
   pdf_path TEXT,
   created_at TEXT DEFAULT CURRENT_TIMESTAMP
 );
@@ -82,7 +88,58 @@ CREATE TABLE IF NOT EXISTS product_colors (
   FOREIGN KEY(product_id) REFERENCES products(id) ON DELETE CASCADE,
   FOREIGN KEY(color_id)  REFERENCES colors(id)   ON DELETE CASCADE
 );
+
+/* Eventos/actividad relacionados con una cotización (seguimiento, envíos, visitas, cambios de estado, etc.) */
+CREATE TABLE IF NOT EXISTS quote_events (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  quote_id INTEGER NOT NULL,
+  type TEXT NOT NULL,
+  payload TEXT,
+  created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY(quote_id) REFERENCES quotes(id)
+);
+
+/* Borradores guardados de cotizaciones (para compartir enlaces o continuar edición) */
+CREATE TABLE IF NOT EXISTS quote_drafts (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  token TEXT UNIQUE NOT NULL,
+  customer_email TEXT,
+  customer_name TEXT,
+  payload TEXT NOT NULL,
+  expires_at TEXT,
+  created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+  updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+);
 `);
+
+/* Migración ligera por si la DB existía sin nuevas columnas */
+try {
+  const cols = db.prepare("PRAGMA table_info(quotes)").all();
+  const ensure = (name, def) => {
+    if (!cols.find((c) => c.name === name)) {
+      db.exec(`ALTER TABLE quotes ADD COLUMN ${name} ${def}`);
+    }
+  };
+  ensure("customer_company", "TEXT");
+  ensure("status_updated_at", "TEXT DEFAULT CURRENT_TIMESTAMP");
+  ensure("follow_up_at", "TEXT");
+  ensure("expected_delivery", "TEXT");
+  ensure("tracking_token", "TEXT UNIQUE");
+  ensure("reminder_count", "INTEGER DEFAULT 0");
+  ensure("customer_portal_last_seen", "TEXT");
+} catch {}
+
+try {
+  db.exec(
+    "CREATE TABLE IF NOT EXISTS quote_events (id INTEGER PRIMARY KEY AUTOINCREMENT, quote_id INTEGER NOT NULL, type TEXT NOT NULL, payload TEXT, created_at TEXT DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY(quote_id) REFERENCES quotes(id))"
+  );
+} catch {}
+
+try {
+  db.exec(
+    "CREATE TABLE IF NOT EXISTS quote_drafts (id INTEGER PRIMARY KEY AUTOINCREMENT, token TEXT UNIQUE NOT NULL, customer_email TEXT, customer_name TEXT, payload TEXT NOT NULL, expires_at TEXT, created_at TEXT DEFAULT CURRENT_TIMESTAMP, updated_at TEXT DEFAULT CURRENT_TIMESTAMP)"
+  );
+} catch {}
 
 /* Índices para acelerar búsqueda/filtros/paginación */
 db.exec(`
@@ -93,14 +150,43 @@ CREATE INDEX IF NOT EXISTS idx_products_feat ON products(featured);
 CREATE INDEX IF NOT EXISTS idx_products_created ON products(created_at);
 CREATE INDEX IF NOT EXISTS idx_colors_active ON colors(active);
 CREATE INDEX IF NOT EXISTS idx_prod_colors ON product_colors(product_id, color_id);
+CREATE INDEX IF NOT EXISTS idx_quote_events_quote ON quote_events(quote_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_quote_drafts_token ON quote_drafts(token);
+CREATE INDEX IF NOT EXISTS idx_products_cat ON products(category_id);
+CREATE INDEX IF NOT EXISTS idx_products_feat ON products(featured);
+CREATE INDEX IF NOT EXISTS idx_products_created ON products(created_at);
+CREATE INDEX IF NOT EXISTS idx_colors_active ON colors(active);
+CREATE INDEX IF NOT EXISTS idx_prod_colors ON product_colors(product_id, color_id);
 `);
 
 /* Migración ligera por si la DB existía sin customer_company */
 try {
   const cols = db.prepare("PRAGMA table_info(quotes)").all();
-  if (!cols.find((c) => c.name === "customer_company")) {
-    db.exec("ALTER TABLE quotes ADD COLUMN customer_company TEXT");
-  }
+  const ensure = (name, def) => {
+    if (!cols.find((c) => c.name === name)) {
+      db.exec(`ALTER TABLE quotes ADD COLUMN ${name} ${def}`);
+    }
+  };
+  ensure("customer_company", "TEXT");
+  ensure("status_updated_at", "TEXT DEFAULT CURRENT_TIMESTAMP");
+  ensure("follow_up_at", "TEXT");
+  ensure("expected_delivery", "TEXT");
+  ensure("tracking_token", "TEXT");
+  ensure("reminder_count", "INTEGER DEFAULT 0");
+  ensure("customer_portal_last_seen", "TEXT");
 } catch {}
 
-export const isFresh = firstTime;
+/* Índices para acelerar búsqueda/filtros/paginación */
+db.exec(`
+CREATE INDEX IF NOT EXISTS idx_products_name ON products(name);
+CREATE INDEX IF NOT EXISTS idx_products_sku ON products(sku);
+CREATE INDEX IF NOT EXISTS idx_products_cat ON products(category_id);
+CREATE INDEX IF NOT EXISTS idx_products_feat ON products(featured);
+CREATE INDEX IF NOT EXISTS idx_products_created ON products(created_at);
+CREATE INDEX IF NOT EXISTS idx_colors_active ON colors(active);
+CREATE INDEX IF NOT EXISTS idx_prod_colors ON product_colors(product_id, color_id);
+CREATE INDEX IF NOT EXISTS idx_quote_events_quote ON quote_events(quote_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_quote_drafts_token ON quote_drafts(token);
+CREATE INDEX IF NOT EXISTS idx_quotes_status ON quotes(status);
+CREATE INDEX IF NOT EXISTS idx_quotes_tracking_token ON quotes(tracking_token);
+`);

@@ -207,8 +207,19 @@ export const quotes = {
     sql += ' ORDER BY created_at DESC';
     return db.prepare(sql).all(...vals);
   },
+  soonFollowUps: () =>
+    db
+      .prepare(
+        `SELECT * FROM quotes
+         WHERE follow_up_at IS NOT NULL
+         ORDER BY follow_up_at ASC
+         LIMIT 50`
+      )
+      .all(),
   get: (id) => db.prepare('SELECT * FROM quotes WHERE id = ?').get(id),
   getByCode: (code) => db.prepare('SELECT * FROM quotes WHERE code = ?').get(code),
+  getByTrackingToken: (token) =>
+    db.prepare('SELECT * FROM quotes WHERE tracking_token = ?').get(token),
   items: (quote_id) => db.prepare('SELECT * FROM quote_items WHERE quote_id = ?').all(quote_id),
   create: ({ code, customer_name, customer_email, customer_phone, customer_company, notes }) =>
     db
@@ -222,6 +233,64 @@ export const quotes = {
         'INSERT INTO quote_items (quote_id, product_id, product_name, sku, qty, color, customization) VALUES (?, ?, ?, ?, ?, ?, ?)'
       )
       .run(quote_id, product_id || null, product_name, sku || null, qty, color || null, customization || null),
-  setStatus: (id, status) => db.prepare('UPDATE quotes SET status = ? WHERE id = ?').run(status, id),
+  setStatus: (id, status) =>
+    db
+      .prepare('UPDATE quotes SET status = ?, status_updated_at = CURRENT_TIMESTAMP WHERE id = ?')
+      .run(status, id),
   setPdfPath: (id, pdf_path) => db.prepare('UPDATE quotes SET pdf_path = ? WHERE id = ?').run(pdf_path, id),
+  setFollowUp: (id, follow_up_at) =>
+    db.prepare('UPDATE quotes SET follow_up_at = ? WHERE id = ?').run(follow_up_at || null, id),
+  setExpectedDelivery: (id, expected_delivery) =>
+    db.prepare('UPDATE quotes SET expected_delivery = ? WHERE id = ?').run(expected_delivery || null, id),
+  setTrackingToken: (id, token) =>
+    db.prepare('UPDATE quotes SET tracking_token = ? WHERE id = ?').run(token || null, id),
+  incrementReminder: (id) =>
+    db.prepare('UPDATE quotes SET reminder_count = COALESCE(reminder_count, 0) + 1 WHERE id = ?').run(id),
+  touchPortalSeen: (id) =>
+    db.prepare('UPDATE quotes SET customer_portal_last_seen = CURRENT_TIMESTAMP WHERE id = ?').run(id),
+};
+
+export const quoteEvents = {
+  create: ({ quote_id, type, payload }) =>
+    db
+      .prepare(
+        'INSERT INTO quote_events (quote_id, type, payload) VALUES (?, ?, ?)'
+      )
+      .run(quote_id, type, payload ? JSON.stringify(payload) : null),
+  list: (quote_id) =>
+    db
+      .prepare('SELECT * FROM quote_events WHERE quote_id = ? ORDER BY created_at DESC')
+      .all(quote_id),
+};
+
+export const quoteDrafts = {
+  create: ({ token, customer_email, customer_name, payload, expires_at }) =>
+    db
+      .prepare(
+        'INSERT INTO quote_drafts (token, customer_email, customer_name, payload, expires_at) VALUES (?, ?, ?, ?, ?)'
+      )
+      .run(token, customer_email || null, customer_name || null, JSON.stringify(payload), expires_at || null),
+  update: (token, { customer_email, customer_name, payload, expires_at }) =>
+    db
+      .prepare(
+        'UPDATE quote_drafts SET customer_email = COALESCE(?, customer_email), customer_name = COALESCE(?, customer_name), payload = COALESCE(?, payload), expires_at = COALESCE(?, expires_at), updated_at = CURRENT_TIMESTAMP WHERE token = ?'
+      )
+      .run(
+        customer_email || null,
+        customer_name || null,
+        payload ? JSON.stringify(payload) : null,
+        expires_at || null,
+        token
+      ),
+  get: (token) => {
+    const row = db
+      .prepare('SELECT * FROM quote_drafts WHERE token = ?')
+      .get(token);
+    if (!row) return null;
+    return { ...row, payload: row.payload ? JSON.parse(row.payload) : null };
+  },
+  pruneExpired: () =>
+    db
+      .prepare('DELETE FROM quote_drafts WHERE expires_at IS NOT NULL AND expires_at < CURRENT_TIMESTAMP')
+      .run(),
 };

@@ -1,4 +1,4 @@
-// web/src/lib/store.jsx
+ // web/src/lib/store.jsx
 import React, { createContext, useContext, useEffect, useMemo, useReducer } from "react";
 
 const CartCtx = createContext();
@@ -6,9 +6,10 @@ const CartCtx = createContext();
 const initial = (() => {
   try {
     const raw = localStorage.getItem("glds_cart_v2");
-    return raw ? JSON.parse(raw) : { items: [] };
+    const parsed = raw ? JSON.parse(raw) : { items: [], meta: {} };
+    return { items: parsed.items || [], meta: parsed.meta || {} };
   } catch {
-    return { items: [] };
+    return { items: [], meta: {} };
   }
 })();
 
@@ -59,8 +60,11 @@ function reducer(state, action) {
       return { ...state, items };
     }
 
+    case "SET_META":
+      return { ...state, meta: { ...state.meta, ...action.payload } };
+
     case "CLEAR":
-      return { ...state, items: [] };
+      return { items: [], meta: {} };
 
     default:
       return state;

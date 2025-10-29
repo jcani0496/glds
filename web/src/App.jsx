@@ -13,6 +13,8 @@ import About from "./pages/About.jsx";
 import Contact from "./pages/Contact.jsx";
 import Catalog from "./pages/Catalog.jsx";
 import Thanks from "./pages/Thanks.jsx";
+import TrackQuote from "./pages/TrackQuote.jsx";
+import ResumeQuote from "./pages/ResumeQuote.jsx";
 
 // Admin (ajusta si tus nombres/rutas difieren)
 import AdminLogin from "./pages/AdminLogin.jsx";
@@ -80,6 +82,8 @@ export default function App() {
             <Route path="/contact" element={<Contact />} />
             <Route path="/catalog" element={<Catalog />} />
             <Route path="/thanks" element={<Thanks />} />
+            <Route path="/track/:token" element={<TrackQuote />} />
+            <Route path="/resume/:token" element={<ResumeQuote />} />
             {/* /cart es manejado por QuoteCartModal montado en Layout */}
             <Route path="/cart" element={<Home />} />
           </Route>

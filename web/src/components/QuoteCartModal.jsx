@@ -1,9 +1,10 @@
-// web/src/components/QuoteCartModal.jsx
+ // web/src/components/QuoteCartModal.jsx
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useEffect, useMemo, useState } from "react";
-import { X, Trash2, Minus, Plus } from "lucide-react";
+import { X, Trash2, Minus, Plus, Download, Save } from "lucide-react";
 import { useCart } from "../lib/store.jsx";
-import api from "../lib/api.js";
+import { quotesApi } from "../lib/api.js";
+import { toast } from "./hooks/use-toast";
 
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:4002";
 
@@ -16,13 +17,15 @@ export default function QuoteCartModal() {
   const items = state.items || [];
 
   const [form, setForm] = useState({
-    company: "",
-    name: "",
-    email: "",
-    phone: "",
-    notes: "",
+    company: state.meta?.company || "",
+    name: state.meta?.name || "",
+    email: state.meta?.email || "",
+    phone: state.meta?.phone || "",
+    notes: state.meta?.notes || "",
   });
   const [sending, setSending] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [shareToken, setShareToken] = useState(null);
 
   useEffect(() => {
     const onKey = (e) => e.key === "Escape" && navigate(-1);
@@ -35,6 +38,10 @@ export default function QuoteCartModal() {
     [items]
   );
 
+  useEffect(() => {
+    dispatch({ type: "SET_META", payload: form });
+  }, [form, dispatch]);
+
   if (!isOpen) return null;
 
   const canSend =
@@ -44,7 +51,7 @@ export default function QuoteCartModal() {
     if (!canSend || sending) return;
     try {
       setSending(true);
-      const res = await api.post("/quotes", {
+      const res = await quotesApi.submit({
         customer_company: form.company || null,
         customer_name: form.name,
         customer_email: form.email,
@@ -59,13 +66,45 @@ export default function QuoteCartModal() {
           customization: it.customization || null,
         })),
       });
+      const trackingToken = res.data?.tracking_token;
       dispatch({ type: "CLEAR" });
-      navigate(`/thanks?code=${encodeURIComponent(res.data?.code || "")}`);
+      toast({
+        title: "Cotización enviada",
+        description: trackingToken
+          ? "Te enviamos un correo con el enlace de seguimiento."
+          : "Recibirás confirmación por correo.",
+      });
+      if (trackingToken) {
+        navigate(`/track/${trackingToken}`);
+      } else {
+        navigate(`/thanks?code=${encodeURIComponent(res.data?.code || "")}`);
+      }
     } catch (e) {
       console.error(e);
-      alert("No se pudo enviar la cotización. Intenta de nuevo.");
+      toast({ title: "Error", description: "No se pudo enviar la cotización.", variant: "destructive" });
     } finally {
       setSending(false);
+    }
+  }
+
+  async function handleSaveDraft() {
+    if (saving || items.length === 0) return;
+    try {
+      setSaving(true);
+      const payload = {
+        items: items.map((it) => ({ ...it })),
+        form,
+      };
+      const { data } = await quotesApi.saveDraft({ payload, token: shareToken });
+      setShareToken(data.token);
+      const url = `${window.location.origin}/resume/${data.token}`;
+      await navigator.clipboard.writeText(url);
+      toast({ title: "Borrador guardado", description: "El enlace se copió al portapapeles." });
+    } catch (e) {
+      console.error(e);
+      toast({ title: "No se pudo guardar", variant: "destructive" });
+    } finally {
+      setSaving(false);
     }
   }
 
@@ -77,6 +116,26 @@ export default function QuoteCartModal() {
     });
   }
 
+  function handleExportJson() {
+    const data = {
+      generated_at: new Date().toISOString(),
+      items,
+      form,
+    };
+    const blob = new Blob([JSON.stringify(data, null, 2)], {
+      type: "application/json",
+    });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `glds-quote-${Date.now()}.json`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+    toast({ title: "Configuración exportada" });
+  }
+
   return (
     <div className="fixed inset-0 z-[70] grid place-items-center">
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => navigate(-1)} />
@@ -84,9 +143,26 @@ export default function QuoteCartModal() {
       <div className="relative w-[min(980px,92vw)] max-h-[86vh] overflow-hidden rounded-2xl border border-white/10 bg-[#101114]/95 text-white shadow-2xl border-beam">
         <div className="flex items-center justify-between px-5 py-4 border-b border-white/10">
           <h3 className="text-lg font-semibold">Tu cotización</h3>
-          <button className="p-2 rounded-full hover:bg-white/10" onClick={() => navigate(-1)} aria-label="Cerrar">
-            <X className="w-5 h-5" />
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleExportJson}
+              className="p-2 rounded-full hover:bg-white/10"
+              title="Exportar configuración"
+            >
+              <Download className="w-4 h-4" />
+            </button>
+            <button
+              onClick={handleSaveDraft}
+              disabled={saving || items.length === 0}
+              className="p-2 rounded-full hover:bg-white/10 disabled:opacity-40"
+              title="Guardar borrador y copiar enlace"
+            >
+              <Save className="w-4 h-4" />
+            </button>
+            <button className="p-2 rounded-full hover:bg-white/10" onClick={() => navigate(-1)} aria-label="Cerrar">
+              <X className="w-5 h-5" />
+            </button>
+          </div>
         </div>
 
         <div className="grid md:grid-cols-[1fr_360px] gap-0">
@@ -141,7 +217,6 @@ export default function QuoteCartModal() {
               })
             )}
           </div>
-
           <div className="p-5 border-t md:border-t-0 md:border-l border-white/10">
             <h4 className="font-semibold mb-3">Datos del solicitante ({totalQty} ítems)</h4>
 
@@ -193,6 +268,12 @@ export default function QuoteCartModal() {
                 {sending ? "Enviando..." : "Enviar cotización"}
               </button>
             </div>
+
+            {shareToken && (
+              <div className="mt-4 text-xs text-white/60">
+                Enlace compartido: <span className="break-all">{`${window.location.origin}/resume/${shareToken}`}</span>
+              </div>
+            )}
           </div>
         </div>
       </div>

@@ -1,11 +1,11 @@
-// web/src/lib/api.js
+ // web/src/lib/api.js
 import axios from "axios";
 
-const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:4002";
-export const API = API_BASE;
+export const API = import.meta.env.VITE_API_URL || "http://localhost:4002";
 
 const api = axios.create({
-  baseURL: API_BASE,
+  baseURL: API,
+  timeout: 10000,
   withCredentials: true,
   headers: { "Content-Type": "application/json" },
 });
@@ -37,5 +37,12 @@ api.interceptors.response.use(
     return Promise.reject(err);
   }
 );
+
+export const quotesApi = {
+  submit: (payload) => api.post("/quotes", payload),
+  track: (token) => api.get(`/quotes/track/${token}`),
+  saveDraft: (payload) => api.post("/quotes/drafts", payload),
+  getDraft: (token) => api.get(`/quotes/drafts/${token}`),
+};
 
 export default api;
