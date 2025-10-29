@@ -1,4 +1,4 @@
-// server/src/routes/stats.routes.js
+ // server/src/routes/stats.routes.js
 import { Router } from "express";
 import dayjs from "dayjs";
 import { db } from "../db.js";
@@ -6,27 +6,35 @@ import { db } from "../db.js";
 const r = Router();
 
 // GET /stats/summary  (montado con requireAuth en index.js)
-r.get("/summary", (req, res) => {
+r.get("/summary", async (req, res) => {
   const now = dayjs();
   const from7  = now.subtract(7,  "day").format("YYYY-MM-DD HH:mm:ss");
   const from14 = now.subtract(13, "day").startOf("day");
   const from30 = now.subtract(30, "day").format("YYYY-MM-DD HH:mm:ss");
 
-  const total    = db.prepare(`SELECT COUNT(*) c FROM quotes`).get().c;
-  const pending  = db.prepare(`SELECT COUNT(*) c FROM quotes WHERE status='pending'`).get().c;
-  const approved = db.prepare(`SELECT COUNT(*) c FROM quotes WHERE status='approved'`).get().c;
-  const closed   = db.prepare(`SELECT COUNT(*) c FROM quotes WHERE status='closed'`).get().c;
+  const totalRow = await db.prepare(`SELECT COUNT(*) as c FROM quotes`).get();
+  const total = totalRow?.c || 0;
 
-  const last7 = db
-    .prepare(`SELECT COUNT(*) c FROM quotes WHERE datetime(created_at) >= datetime(?)`)
-    .get(from7).c;
+  const pendingRow = await db.prepare(`SELECT COUNT(*) as c FROM quotes WHERE status='pending'`).get();
+  const pending = pendingRow?.c || 0;
+
+  const approvedRow = await db.prepare(`SELECT COUNT(*) as c FROM quotes WHERE status='approved'`).get();
+  const approved = approvedRow?.c || 0;
+
+  const closedRow = await db.prepare(`SELECT COUNT(*) as c FROM quotes WHERE status='closed'`).get();
+  const closed = closedRow?.c || 0;
+
+  const last7Row = await db
+    .prepare(`SELECT COUNT(*) as c FROM quotes WHERE created_at >= $1`)
+    .get(from7);
+  const last7 = last7Row?.c || 0;
 
   // Serie últimos 14 días
-  const rows = db.prepare(`
-    SELECT date(created_at) d, COUNT(*) c
+  const rows = await db.prepare(`
+    SELECT DATE(created_at) as d, COUNT(*) as c
     FROM quotes
-    WHERE date(created_at) >= date(?)
-    GROUP BY date(created_at)
+    WHERE DATE(created_at) >= $1
+    GROUP BY DATE(created_at)
     ORDER BY d ASC
   `).all(from14.format("YYYY-MM-DD"));
 
@@ -38,73 +46,35 @@ r.get("/summary", (req, res) => {
   }
 
   // Top productos (30d) por líneas de ítem
-  const top_products = db.prepare(`
+  const top_products = await db.prepare(`
     SELECT COALESCE(qi.product_name, 'Producto') AS label, COUNT(*) AS count
     FROM quote_items qi
     JOIN quotes q ON q.id = qi.quote_id
-    WHERE datetime(q.created_at) >= datetime(?)
+    WHERE q.created_at >= $1
     GROUP BY label
     ORDER BY count DESC
     LIMIT 5
   `).all(from30);
 
   // Top categorías (30d) — requiere product_id asociado
-  const top_categories = db.prepare(`
+  const top_categories = await db.prepare(`
     SELECT COALESCE(c.name, 'Sin categoría') AS label, COUNT(*) AS count
     FROM quote_items qi
     JOIN quotes q ON q.id = qi.quote_id
     JOIN products p ON p.id = qi.product_id
     LEFT JOIN categories c ON c.id = p.category_id
-    WHERE datetime(q.created_at) >= datetime(?)
+    WHERE q.created_at >= $1
     GROUP BY label
     ORDER BY count DESC
     LIMIT 5
   `).all(from30);
-
-  // Clientes únicos (30d)
-  const unique_customers_30d = db.prepare(`
-    SELECT COUNT(DISTINCT customer_email) AS c
-    FROM quotes
-    WHERE datetime(created_at) >= datetime(?)
-  `).get(from30).c;
-
-  // PDFs enviados (30d): hay pdf_path
-  const pdfs_sent_30d = db.prepare(`
-    SELECT COUNT(*) AS c
-    FROM quotes
-    WHERE pdf_path IS NOT NULL AND TRIM(pdf_path) <> ''
-      AND datetime(created_at) >= datetime(?)
-  `).get(from30).c;
-
-  // Ítems por cotización (promedio, 30d)
-  const avgRow = db.prepare(`
-    SELECT AVG(cnt) AS avg_items
-    FROM (
-      SELECT COUNT(*) AS cnt
-      FROM quote_items qi
-      JOIN quotes q ON q.id = qi.quote_id
-      WHERE datetime(q.created_at) >= datetime(?)
-      GROUP BY q.id
-    )
-  `).get(from30);
-  const avg_items_per_quote = avgRow?.avg_items ?? 0;
-
-  res.json({
-    total,
-    last7,
-    pending,
-    approved,
-    closed,
-    series14d,
-    top_products,
-    top_categories,
     unique_customers_30d,
     pdfs_sent_30d,
     avg_items_per_quote,
   });
 });
 
-r.get("/products-analytics", (req, res) => {
+r.get("/products-analytics", async (req, res) => {
   try {
     const { period = "30" } = req.query;
     const now = dayjs();
@@ -112,7 +82,7 @@ r.get("/products-analytics", (req, res) => {
 
     let mostQuoted = [];
     try {
-      mostQuoted = db.prepare(`
+      mostQuoted = await db.prepare(`
         SELECT
           p.id,
           p.name,
@@ -123,8 +93,8 @@ r.get("/products-analytics", (req, res) => {
         FROM quote_items qi
         JOIN products p ON p.id = qi.product_id
         JOIN quotes q ON q.id = qi.quote_id
-        WHERE datetime(q.created_at) >= datetime(?)
-        GROUP BY p.id
+        WHERE q.created_at >= $1
+        GROUP BY p.id, p.name, p.sku, p.image_url
         ORDER BY quote_count DESC
         LIMIT 10
       `).all(fromDate);
@@ -134,7 +104,7 @@ r.get("/products-analytics", (req, res) => {
 
     let byCategory = [];
     try {
-      byCategory = db.prepare(`
+      byCategory = await db.prepare(`
         SELECT
           COALESCE(c.name, 'Sin categoría') as category,
           COUNT(DISTINCT qi.id) as quote_items,
@@ -143,8 +113,8 @@ r.get("/products-analytics", (req, res) => {
         JOIN quotes q ON q.id = qi.quote_id
         LEFT JOIN products p ON p.id = qi.product_id
         LEFT JOIN categories c ON c.id = p.category_id
-        WHERE datetime(q.created_at) >= datetime(?)
-        GROUP BY category
+        WHERE q.created_at >= $1
+        GROUP BY c.name
         ORDER BY quote_items DESC
       `).all(fromDate);
     } catch (err) {
@@ -153,7 +123,7 @@ r.get("/products-analytics", (req, res) => {
 
     let stockStatus = [];
     try {
-      stockStatus = db.prepare(`
+      stockStatus = await db.prepare(`
         SELECT
           stock_status,
           COUNT(*) as count
@@ -171,11 +141,11 @@ r.get("/products-analytics", (req, res) => {
     });
   } catch (error) {
     console.error("Error in products analytics:", error);
-    res.status(500).json({ error: "Error al obtener analíticas de productos" });
+    res.status(500).json({ error: "Error al obtener analíticas de productos", message: error.message });
   }
 });
 
-r.get("/customers-analytics", (req, res) => {
+r.get("/customers-analytics", async (req, res) => {
   try {
     const { period = "30" } = req.query;
     const now = dayjs();
@@ -183,7 +153,7 @@ r.get("/customers-analytics", (req, res) => {
 
     let topCustomers = [];
     try {
-      topCustomers = db.prepare(`
+      topCustomers = await db.prepare(`
         SELECT
           c.id,
           c.name,
@@ -202,7 +172,7 @@ r.get("/customers-analytics", (req, res) => {
 
     let customersByStatus = [];
     try {
-      customersByStatus = db.prepare(`
+      customersByStatus = await db.prepare(`
         SELECT
           status,
           COUNT(*) as count
@@ -215,10 +185,10 @@ r.get("/customers-analytics", (req, res) => {
 
     let newCustomers = 0;
     try {
-      const result = db.prepare(`
+      const result = await db.prepare(`
         SELECT COUNT(*) as count
         FROM customers
-        WHERE datetime(created_at) >= datetime(?)
+        WHERE created_at >= $1
       `).get(fromDate);
       newCustomers = result?.count || 0;
     } catch (err) {
@@ -227,12 +197,12 @@ r.get("/customers-analytics", (req, res) => {
 
     let customerGrowth = [];
     try {
-      customerGrowth = db.prepare(`
+      customerGrowth = await db.prepare(`
         SELECT
-          date(created_at) as day,
+          DATE(created_at) as day,
           COUNT(*) as count
         FROM customers
-        WHERE datetime(created_at) >= datetime(?)
+        WHERE created_at >= $1
         GROUP BY day
         ORDER BY day ASC
       `).all(fromDate);
@@ -248,11 +218,11 @@ r.get("/customers-analytics", (req, res) => {
     });
   } catch (error) {
     console.error("Error in customers analytics:", error);
-    res.status(500).json({ error: "Error al obtener analíticas de clientes" });
+    res.status(500).json({ error: "Error al obtener analíticas de clientes", message: error.message });
   }
 });
 
-r.get("/quotes-analytics", (req, res) => {
+r.get("/quotes-analytics", async (req, res) => {
   try {
     const { period = "30" } = req.query;
     const now = dayjs();
@@ -260,12 +230,12 @@ r.get("/quotes-analytics", (req, res) => {
 
     let quotesByStatus = [];
     try {
-      quotesByStatus = db.prepare(`
+      quotesByStatus = await db.prepare(`
         SELECT
           status,
           COUNT(*) as count
         FROM quotes
-        WHERE datetime(created_at) >= datetime(?)
+        WHERE created_at >= $1
         GROUP BY status
       `).all(fromDate);
     } catch (err) {
@@ -278,8 +248,7 @@ r.get("/quotes-analytics", (req, res) => {
         SELECT
           COUNT(*) as total,
           SUM(CASE WHEN status = 'approved' THEN 1 ELSE 0 END) as approved
-        FROM quotes
-        WHERE datetime(created_at) >= datetime(?)
+        WHERE created_at >= $1
       `).get(fromDate) || { total: 0, approved: 0 };
     } catch (err) {
       console.error("Error fetching conversionRate:", err);
@@ -287,14 +256,14 @@ r.get("/quotes-analytics", (req, res) => {
 
     let avgResponseTime = { avg_hours: 0 };
     try {
-      avgResponseTime = db.prepare(`
+      avgResponseTime = await db.prepare(`
         SELECT
           AVG(
-            CAST((julianday(status_updated_at) - julianday(created_at)) * 24 AS REAL)
+            EXTRACT(EPOCH FROM (status_updated_at - created_at)) / 3600
           ) as avg_hours
         FROM quotes
         WHERE status != 'pending'
-          AND datetime(created_at) >= datetime(?)
+          AND created_at >= $1
           AND status_updated_at IS NOT NULL
       `).get(fromDate) || { avg_hours: 0 };
     } catch (err) {
@@ -303,14 +272,14 @@ r.get("/quotes-analytics", (req, res) => {
 
     let quotesTrend = [];
     try {
-      quotesTrend = db.prepare(`
+      quotesTrend = await db.prepare(`
         SELECT
-          date(created_at) as day,
+          DATE(created_at) as day,
           COUNT(*) as total,
           SUM(CASE WHEN status = 'approved' THEN 1 ELSE 0 END) as approved,
           SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) as pending
         FROM quotes
-        WHERE datetime(created_at) >= datetime(?)
+        WHERE created_at >= $1
         GROUP BY day
         ORDER BY day ASC
       `).all(fromDate);
@@ -334,7 +303,7 @@ r.get("/quotes-analytics", (req, res) => {
     });
   } catch (error) {
     console.error("Error in quotes analytics:", error);
-    res.status(500).json({ error: "Error al obtener analíticas de cotizaciones" });
+    res.status(500).json({ error: "Error al obtener analíticas de cotizaciones", message: error.message });
   }
 });
 

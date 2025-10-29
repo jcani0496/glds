@@ -356,3 +356,28 @@ export const customers = {
   getInteractions: async (customer_id) =>
     await db.prepare('SELECT * FROM customer_interactions WHERE customer_id = $1 ORDER BY created_at DESC').all(customer_id),
 };
+
+/* ---------------- Quote Drafts ---------------- */
+export const quoteDrafts = {
+  get: async (token) => {
+    const row = await db.prepare('SELECT * FROM quote_drafts WHERE token = $1').get(token);
+    if (!row) return null;
+    return {
+      ...row,
+      payload: row.payload ? JSON.parse(row.payload) : null,
+    };
+  },
+
+  create: async ({ token, customer_email, customer_name, payload, expires_at }) =>
+    await db
+      .prepare('INSERT INTO quote_drafts (token, customer_email, customer_name, payload, expires_at) VALUES ($1, $2, $3, $4, $5) RETURNING id')
+      .get(token, customer_email || null, customer_name || null, JSON.stringify(payload), expires_at || null),
+
+  update: async (token, { customer_email, customer_name, payload, expires_at }) =>
+    await db
+      .prepare('UPDATE quote_drafts SET customer_email=$1, customer_name=$2, payload=$3, expires_at=$4, updated_at=CURRENT_TIMESTAMP WHERE token=$5')
+      .run(customer_email || null, customer_name || null, JSON.stringify(payload), expires_at || null, token),
+
+  pruneExpired: async () =>
+    await db.prepare('DELETE FROM quote_drafts WHERE expires_at < CURRENT_TIMESTAMP').run(),
+};
