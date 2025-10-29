@@ -12,14 +12,14 @@ export default function AdminColors() {
   const [editId, setEditId] = useState(null);
   const [editForm, setEditForm] = useState({ name: "", hex: "" });
   const [errors, setErrors] = useState({});
-  const { showToast } = useToast();
+  const toast = useToast();
 
   async function load() {
     try {
       const { data } = await api.get("/colors");
       setItems(data);
     } catch (error) {
-      showToast('Error al cargar colores', 'error');
+      toast.error('Error al cargar colores');
     }
   }
 
@@ -57,9 +57,9 @@ export default function AdminColors() {
       });
       setForm({ name: "", hex: "" });
       await load();
-      showToast('Color creado exitosamente', 'success');
+      toast.success('Color creado exitosamente');
     } catch (error) {
-      showToast('Error al crear color', 'error');
+      toast.error('Error al crear color');
     } finally {
       setLoading(false);
     }
@@ -70,9 +70,9 @@ export default function AdminColors() {
     try {
       await api.delete("/colors/" + id);
       await load();
-      showToast('Color eliminado', 'success');
+      toast.success('Color eliminado');
     } catch (error) {
-      showToast('Error al eliminar color', 'error');
+      toast.error('Error al eliminar color');
     }
   }
 
@@ -90,7 +90,7 @@ export default function AdminColors() {
     if (!editId) return;
     const newErrors = validateForm(editForm);
     if (Object.keys(newErrors).length > 0) {
-      showToast('Por favor corrige los errores', 'error');
+      toast.error('Por favor corrige los errores');
       return;
     }
 
@@ -101,9 +101,9 @@ export default function AdminColors() {
       });
       cancelEdit();
       await load();
-      showToast('Color actualizado', 'success');
+      toast.success('Color actualizado');
     } catch (error) {
-      showToast('Error al actualizar color', 'error');
+      toast.error('Error al actualizar color');
     }
   }
 

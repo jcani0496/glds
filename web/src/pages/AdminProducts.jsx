@@ -35,7 +35,7 @@ export default function AdminProducts() {
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [errors, setErrors] = useState({});
-  const { showToast } = useToast();
+  const toast = useToast();
 
   async function loadAll() {
     try {
@@ -53,7 +53,7 @@ export default function AdminProducts() {
         setPalette([]);
       }
     } catch (error) {
-      showToast('Error al cargar datos', 'error');
+      toast.error('Error al cargar datos');
     }
   }
 
@@ -106,15 +106,15 @@ export default function AdminProducts() {
 
       if (form.id) {
         await api.put(`/products/${form.id}`, payload);
-        showToast('Producto actualizado exitosamente', 'success');
+        toast.success('Producto actualizado exitosamente');
       } else {
         await api.post('/products', payload);
-        showToast('Producto creado exitosamente', 'success');
+        toast.success('Producto creado exitosamente');
       }
       resetForm();
       loadAll();
     } catch (error) {
-      showToast('Error al guardar el producto', 'error');
+      toast.error('Error al guardar el producto');
     } finally {
       setSaving(false);
     }
@@ -126,9 +126,9 @@ export default function AdminProducts() {
       await api.delete('/products/' + id);
       if (form.id === id) resetForm();
       loadAll();
-      showToast('Producto eliminado', 'success');
+      toast.success('Producto eliminado');
     } catch (error) {
-      showToast('Error al eliminar el producto', 'error');
+      toast.error('Error al eliminar el producto');
     }
   }
 
@@ -137,7 +137,7 @@ export default function AdminProducts() {
     if (!file) return;
 
     if (file.size > 5 * 1024 * 1024) {
-      showToast('La imagen no debe superar 5MB', 'error');
+      toast.error('La imagen no debe superar 5MB');
       return;
     }
 
@@ -145,10 +145,10 @@ export default function AdminProducts() {
       setUploading(true);
       const url = await uploadToCloudinary(file);
       setForm((f) => ({ ...f, image_url: url }));
-      showToast('Imagen subida exitosamente', 'success');
+      toast.success('Imagen subida exitosamente');
     } catch (err) {
       console.error(err);
-      showToast(err.message || 'No se pudo subir la imagen', 'error');
+      toast.error(err.message || 'No se pudo subir la imagen');
     } finally {
       setUploading(false);
       e.target.value = "";

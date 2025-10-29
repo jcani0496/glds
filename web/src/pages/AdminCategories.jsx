@@ -12,14 +12,14 @@ export default function AdminCategories() {
   const [editId, setEditId] = useState(null);
   const [editName, setEditName] = useState("");
   const [error, setError] = useState("");
-  const { showToast } = useToast();
+  const toast = useToast();
 
   async function load() {
     try {
       const { data } = await api.get("/categories");
       setItems(data);
     } catch (error) {
-      showToast('Error al cargar categorías', 'error');
+      toast.error('Error al cargar categorías');
     }
   }
 
@@ -39,9 +39,9 @@ export default function AdminCategories() {
       await api.post("/categories", { name: name.trim() });
       setName("");
       await load();
-      showToast('Categoría creada exitosamente', 'success');
+      toast.success('Categoría creada exitosamente');
     } catch (error) {
-      showToast('Error al crear categoría', 'error');
+      toast.error('Error al crear categoría');
     } finally {
       setLoading(false);
     }
@@ -52,9 +52,9 @@ export default function AdminCategories() {
     try {
       await api.delete("/categories/" + id);
       await load();
-      showToast('Categoría eliminada', 'success');
+      toast.success('Categoría eliminada');
     } catch (error) {
-      showToast('Error al eliminar categoría', 'error');
+      toast.error('Error al eliminar categoría');
     }
   }
 
@@ -74,9 +74,9 @@ export default function AdminCategories() {
       await api.put(`/categories/${editId}`, { name: editName.trim() });
       cancelEdit();
       await load();
-      showToast('Categoría actualizada', 'success');
+      toast.success('Categoría actualizada');
     } catch (error) {
-      showToast('Error al actualizar categoría', 'error');
+      toast.error('Error al actualizar categoría');
     }
   }
 
