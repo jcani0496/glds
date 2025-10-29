@@ -286,6 +286,21 @@ export const quotes = {
   markPortalSeen: async (id) =>
     await db.prepare('UPDATE quotes SET customer_portal_last_seen = CURRENT_TIMESTAMP WHERE id = $1').run(id),
 
+  // Aliases
+  setStatus: async (id, status) =>
+    await db.prepare('UPDATE quotes SET status = $1, status_updated_at = CURRENT_TIMESTAMP WHERE id = $2').run(status, id),
+  setFollowUp: async (id, follow_up_at) =>
+    await db.prepare('UPDATE quotes SET follow_up_at = $1 WHERE id = $2').run(follow_up_at || null, id),
+  incrementReminder: async (id) =>
+    await db.prepare('UPDATE quotes SET reminder_count = COALESCE(reminder_count, 0) + 1 WHERE id = $1').run(id),
+  touchPortalSeen: async (id) =>
+    await db.prepare('UPDATE quotes SET customer_portal_last_seen = CURRENT_TIMESTAMP WHERE id = $1').run(id),
+
+  addItem: async ({ quote_id, product_id, product_name, sku, qty, color, customization }) =>
+    await db
+      .prepare('INSERT INTO quote_items (quote_id, product_id, product_name, sku, qty, color, customization) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id')
+      .get(quote_id, product_id || null, product_name, sku || null, qty, color || null, customization || null),
+
   addEvent: async (quote_id, type, payload = null) =>
     await db
       .prepare('INSERT INTO quote_events (quote_id, type, payload) VALUES ($1, $2, $3) RETURNING id')
@@ -312,6 +327,47 @@ export const quotes = {
       payload: row.payload ? JSON.parse(row.payload) : null,
     };
   },
+};
+
+/* ---------------- Quote Events ---------------- */
+export const quoteEvents = {
+  create: async ({ quote_id, type, payload = null }) =>
+    await db
+      .prepare('INSERT INTO quote_events (quote_id, type, payload) VALUES ($1, $2, $3) RETURNING id')
+      .get(quote_id, type, payload ? JSON.stringify(payload) : null),
+
+  list: async (quote_id) => {
+    const rows = await db.prepare('SELECT * FROM quote_events WHERE quote_id = $1 ORDER BY created_at DESC').all(quote_id);
+    return rows.map((r) => ({
+      ...r,
+      payload: r.payload ? JSON.parse(r.payload) : null,
+    }));
+  },
+};
+
+/* ---------------- Quote Drafts ---------------- */
+export const quoteDrafts = {
+  create: async ({ token, customer_email, customer_name, payload, expires_at }) =>
+    await db
+      .prepare('INSERT INTO quote_drafts (token, customer_email, customer_name, payload, expires_at) VALUES ($1, $2, $3, $4, $5) RETURNING id')
+      .get(token, customer_email || null, customer_name || null, JSON.stringify(payload), expires_at || null),
+
+  update: async (token, { payload, customer_email, customer_name, expires_at }) =>
+    await db
+      .prepare('UPDATE quote_drafts SET payload = $1, customer_email = $2, customer_name = $3, expires_at = $4, updated_at = CURRENT_TIMESTAMP WHERE token = $5')
+      .run(JSON.stringify(payload), customer_email || null, customer_name || null, expires_at || null, token),
+
+  get: async (token) => {
+    const row = await db.prepare('SELECT * FROM quote_drafts WHERE token = $1').get(token);
+    if (!row) return null;
+    return {
+      ...row,
+      payload: row.payload ? JSON.parse(row.payload) : null,
+    };
+  },
+
+  pruneExpired: async () =>
+    await db.prepare('DELETE FROM quote_drafts WHERE expires_at IS NOT NULL AND expires_at < CURRENT_TIMESTAMP').run(),
 };
 
 /* ---------------- Customers ---------------- */
@@ -355,29 +411,4 @@ export const customers = {
 
   getInteractions: async (customer_id) =>
     await db.prepare('SELECT * FROM customer_interactions WHERE customer_id = $1 ORDER BY created_at DESC').all(customer_id),
-};
-
-/* ---------------- Quote Drafts ---------------- */
-export const quoteDrafts = {
-  get: async (token) => {
-    const row = await db.prepare('SELECT * FROM quote_drafts WHERE token = $1').get(token);
-    if (!row) return null;
-    return {
-      ...row,
-      payload: row.payload ? JSON.parse(row.payload) : null,
-    };
-  },
-
-  create: async ({ token, customer_email, customer_name, payload, expires_at }) =>
-    await db
-      .prepare('INSERT INTO quote_drafts (token, customer_email, customer_name, payload, expires_at) VALUES ($1, $2, $3, $4, $5) RETURNING id')
-      .get(token, customer_email || null, customer_name || null, JSON.stringify(payload), expires_at || null),
-
-  update: async (token, { customer_email, customer_name, payload, expires_at }) =>
-    await db
-      .prepare('UPDATE quote_drafts SET customer_email=$1, customer_name=$2, payload=$3, expires_at=$4, updated_at=CURRENT_TIMESTAMP WHERE token=$5')
-      .run(customer_email || null, customer_name || null, JSON.stringify(payload), expires_at || null, token),
-
-  pruneExpired: async () =>
-    await db.prepare('DELETE FROM quote_drafts WHERE expires_at < CURRENT_TIMESTAMP').run(),
 };
