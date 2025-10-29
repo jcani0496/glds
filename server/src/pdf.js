@@ -1,6 +1,14 @@
 import fs from "node:fs";
 import path from "node:path";
 import PDFDocument from "pdfkit";
+import { v2 as cloudinary } from "cloudinary";
+
+// Configurar Cloudinary
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+});
 
 function ensureDir(p) {
   if (!fs.existsSync(p)) fs.mkdirSync(p, { recursive: true });
@@ -20,12 +28,17 @@ const COLS = [
 ];
 
 export async function buildQuotePDF({ quote, items }) {
-  const outDir = path.join(process.cwd(), "generated-quotes");
-  ensureDir(outDir);
+  // En Vercel, usar /tmp que es el único directorio escribible
+  const isVercel = !!(process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME);
+  const outDir = isVercel ? "/tmp" : path.join(process.cwd(), "generated-quotes");
+
+  if (!isVercel) {
+    ensureDir(outDir);
+  }
 
   const filename = `${quote.code}.pdf`;
   const filePath = path.join(outDir, filename);
-  const webPath = `/generated-quotes/${filename}`;
+  let webPath = `/generated-quotes/${filename}`;
 
   const doc = new PDFDocument({ size: "A4", margin: 0 });
   const stream = fs.createWriteStream(filePath);
@@ -127,5 +140,28 @@ export async function buildQuotePDF({ quote, items }) {
 
   doc.end();
   await new Promise((r) => stream.on("finish", r));
+
+  // Si estamos en Vercel, subir a Cloudinary
+  if (isVercel && process.env.CLOUDINARY_CLOUD_NAME) {
+    try {
+      const uploadResult = await cloudinary.uploader.upload(filePath, {
+        folder: "glds/quotes",
+        resource_type: "raw",
+        public_id: quote.code,
+      });
+      webPath = uploadResult.secure_url;
+
+      // Limpiar archivo temporal
+      try {
+        fs.unlinkSync(filePath);
+      } catch (e) {
+        console.warn("No se pudo eliminar archivo temporal:", e.message);
+      }
+    } catch (e) {
+      console.error("Error subiendo PDF a Cloudinary:", e.message);
+      // Si falla, mantener el path local (aunque no será accesible en Vercel)
+    }
+  }
+
   return { filePath, webPath };
 }

@@ -83,12 +83,25 @@ router.post("/", async (req, res) => {
     await quotes.setPdfPath(quote_id, webPath);
 
     try {
-      await sendQuoteEmail({
-        to: customer_email,
-        subject: `GLDS – Cotización ${code}`,
-        html: `<p>Hola ${customer_name},</p><p>Adjuntamos tu cotización <b>${code}</b>.</p><p>Puedes hacer seguimiento en cualquier momento: <a href="${process.env.PUBLIC_BASE_URL || "http://localhost:5173"}/track/${tracking_token}">Ver estado</a>.</p><p>Gracias por cotizar con GLDS.</p>`,
-        attachments: [{ filename: `${code}.pdf`, path: filePath }],
-      });
+      // Si el webPath es una URL de Cloudinary, usar esa URL en el email
+      const isCloudinaryUrl = webPath.startsWith('http');
+
+      if (isCloudinaryUrl) {
+        // Enviar email con link al PDF en Cloudinary
+        await sendQuoteEmail({
+          to: customer_email,
+          subject: `GLDS – Cotización ${code}`,
+          html: `<p>Hola ${customer_name},</p><p>Tu cotización <b>${code}</b> está lista.</p><p>Puedes descargarla aquí: <a href="${webPath}">Descargar PDF</a></p><p>También puedes hacer seguimiento en cualquier momento: <a href="${process.env.PUBLIC_BASE_URL || "http://localhost:5173"}/track/${tracking_token}">Ver estado</a>.</p><p>Gracias por cotizar con GLDS.</p>`,
+        });
+      } else {
+        // Enviar email con PDF adjunto (desarrollo local)
+        await sendQuoteEmail({
+          to: customer_email,
+          subject: `GLDS – Cotización ${code}`,
+          html: `<p>Hola ${customer_name},</p><p>Adjuntamos tu cotización <b>${code}</b>.</p><p>Puedes hacer seguimiento en cualquier momento: <a href="${process.env.PUBLIC_BASE_URL || "http://localhost:5173"}/track/${tracking_token}">Ver estado</a>.</p><p>Gracias por cotizar con GLDS.</p>`,
+          attachments: [{ filename: `${code}.pdf`, path: filePath }],
+        });
+      }
     } catch (e) {
       console.error("[mailer] error:", e?.message || e);
     }
