@@ -3,12 +3,9 @@ import "dotenv/config";
 import express from "express";
 import cors from "cors";
 import cookieParser from "cookie-parser";
-import http from "node:http";
 import path from "node:path";
-import { Server as IOServer } from "socket.io";
 
 import { requireAuth } from "./auth.js";
-import { setUpSocket } from "./socket.js";
 
 import authRoutes from "./routes/auth.routes.js";
 import productsRoutes from "./routes/products.routes.js";
@@ -50,26 +47,15 @@ app.use("/contact", contactRoutes);
 app.use("/stats", requireAuth, statsRoutes);
 app.use("/customers", requireAuth, customersRoutes);
 
-// Otras rutas (no proteger a nivel prefijo porque internamente ya se decide)
-// - /quotes: POST público; GET/LIST/STATUS requieren auth
+// Otras rutas
 app.use("/products", productsRoutes);
 app.use("/categories", categoriesRoutes);
 app.use("/uploads", uploadsRoutes);
 app.use('/colors', colorsRoutes);
-// ... existing code ...
-
-// Socket.IO
-const server = http.createServer(app);
-const io = new IOServer(server, {
-  cors: { origin: process.env.CLIENT_URL || "*", credentials: true },
-});
-setUpSocket(io);
-
-// /quotes necesita acceso a io (para notificar)
-app.use("/quotes", quotesRoutes(io));
+app.use("/quotes", quotesRoutes);
 
 // Start
 const PORT = process.env.PORT || 4002;
-server.listen(PORT, () => {
+app.listen(PORT, () => {
   console.log(`API listening on http://localhost:${PORT}`);
 });

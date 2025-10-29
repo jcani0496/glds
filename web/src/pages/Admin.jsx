@@ -1,8 +1,7 @@
-// web/src/pages/Admin.jsx
-import { useEffect, useMemo, useRef, useState } from "react";
+ // web/src/pages/Admin.jsx
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import api, { API } from "../lib/api.js";
-import io from "socket.io-client";
+import api from "../lib/api.js";
 import {
   TrendingUp,
   CheckCircle2,
@@ -84,7 +83,6 @@ function Bento({ title, icon: Icon, children, className = "" }) {
 export default function Admin() {
   const [stats, setStats] = useState(null);
   const [recent, setRecent] = useState([]);
-  const socketRef = useRef(null);
 
   const fetchData = async () => {
     try {
@@ -109,16 +107,8 @@ export default function Admin() {
 
   useEffect(() => {
     fetchData();
-    // Tiempo real
-    const socket = io(API, { transports: ["websocket"] });
-    socketRef.current = socket;
-    socket.on("quote:new", fetchData);
-    socket.on("quote:updated", fetchData);
-    return () => {
-      socket.off("quote:new", fetchData);
-      socket.off("quote:updated", fetchData);
-      socket.close();
-    };
+    const interval = setInterval(fetchData, 30000);
+    return () => clearInterval(interval);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

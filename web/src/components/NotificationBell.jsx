@@ -1,16 +1,8 @@
 import { Bell } from "lucide-react";
-import { useEffect, useState } from "react";
-import io from "socket.io-client";
-import { API } from "../lib/api.js";
+import { useState } from "react";
 
 export default function NotificationBell() {
   const [hasNew, setHasNew] = useState(false);
-
-  useEffect(() => {
-    const socket = io(API, { transports: ["websocket"] });
-    socket.on("quote:new", () => setHasNew(true));
-    return () => socket.close();
-  }, []);
 
   return (
     <button

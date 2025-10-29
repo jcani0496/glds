@@ -77,14 +77,7 @@ async function initializeRoutes() {
 
     try {
       const quotesModule = await import('../server/src/routes/quotes.routes.js');
-      const quotesRouter = quotesModule.default;
-      // Mock io for serverless
-      const mockIo = {
-        emit: () => {},
-        on: () => {},
-        sockets: { emit: () => {} }
-      };
-      quotesRoutes = typeof quotesRouter === 'function' ? quotesRouter(mockIo) : quotesRouter;
+      quotesRoutes = quotesModule.default;
       console.log('✅ Quotes routes loaded');
     } catch (e) {
       console.error('❌ Failed to load quotes routes:', e.message);
