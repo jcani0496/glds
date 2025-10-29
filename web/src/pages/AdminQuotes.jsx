@@ -90,13 +90,26 @@ function QuoteCard({ quote, isDragging }) {
     return colors[status] || "text-white/60";
   };
 
+  const getStatusLabel = (status) => {
+    const labels = {
+      pending: "Pendiente",
+      reviewing: "En Revisión",
+      sent: "Enviada",
+      approved: "Aprobada",
+      closed: "Cerrada",
+    };
+    return labels[status] || status;
+  };
+
   return (
-    <div
+    <article
       ref={setNodeRef}
       style={style}
-      className={`bg-white/[.08] border border-white/10 rounded-lg p-3 cursor-grab active:cursor-grabbing hover:bg-white/[.12] transition-all duration-200 ${
-        isDragging ? "shadow-2xl ring-2 ring-white/30 scale-105" : ""
-      }`}
+      className={`bg-white/[.08] border border-white/10 rounded-lg p-3 cursor-grab active:cursor-grabbing
+                  hover:bg-white/[.12] transition-all duration-200
+                  focus-within:ring-2 focus-within:ring-glds-primary
+                  ${isDragging ? "shadow-2xl ring-2 ring-white/30 scale-105" : ""}`}
+      aria-label={`Cotización ${quote.code}`}
     >
       <div className="flex items-start gap-2">
         <div
@@ -149,7 +162,7 @@ function QuoteCard({ quote, isDragging }) {
 
             <div className="flex items-center justify-between gap-2 text-white/50 pt-1 border-t border-white/5">
               <div className="flex items-center gap-1.5">
-                <Calendar className="w-3 h-3 shrink-0" />
+                <Calendar className="w-3 h-3 shrink-0" aria-hidden="true" />
                 <span>{new Date(quote.created_at).toLocaleDateString('es-ES', {
                   day: 'numeric',
                   month: 'short',
@@ -162,7 +175,7 @@ function QuoteCard({ quote, isDragging }) {
           </div>
         </div>
       </div>
-    </div>
+    </article>
   );
 }
 // ... existing code ...
@@ -185,11 +198,11 @@ function KanbanColumn({ column, quotes, activeId }) {
   };
 
   return (
-    <div className="flex-1 min-w-[300px] max-w-[380px]">
+    <div className="flex-shrink-0 w-[320px] md:w-[340px]">
       <div className={`rounded-xl border ${column.color} p-4 h-full flex flex-col backdrop-blur-sm`}>
         <div className="flex items-center justify-between mb-4 pb-3 border-b border-white/10">
           <div className="flex items-center gap-2">
-            <span className="text-lg">{getColumnIcon(column.id)}</span>
+            <span className="text-lg" aria-hidden="true">{getColumnIcon(column.id)}</span>
             <h3 className="font-semibold text-white">{column.label}</h3>
           </div>
           <span className="text-xs bg-white/20 px-2.5 py-1 rounded-full font-semibold">
@@ -210,7 +223,7 @@ function KanbanColumn({ column, quotes, activeId }) {
 
           {quotes.length === 0 && (
             <div className="text-center text-white/30 text-sm py-12 border-2 border-dashed border-white/10 rounded-lg">
-              <div className="text-2xl mb-2">📭</div>
+              <div className="text-2xl mb-2" aria-hidden="true">📭</div>
               <div>Sin cotizaciones</div>
             </div>
           )}
@@ -274,9 +287,8 @@ export default function AdminQuotes() {
   async function updateStatus(id, newStatus) {
     try {
       await api.patch(`/quotes/${id}/status`, { status: newStatus });
-      setItems((prev) =>
-        prev.map((q) => (q.id === id ? { ...q, status: newStatus } : q))
-      );
+
+      await load();
 
       const statusLabels = {
         pending: "Pendiente",
@@ -378,35 +390,49 @@ export default function AdminQuotes() {
 
   return (
     <section className="container mx-auto px-6 py-8">
-      <div className="flex items-center justify-between mb-6">
-        <h3 className="text-2xl font-semibold">Pipeline de Cotizaciones</h3>
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
+        <div>
+          <h1 className="text-h2 font-semibold text-primary">Pipeline de Cotizaciones</h1>
+          <p className="text-body-sm text-tertiary mt-1">
+            Arrastra las tarjetas para cambiar su estado
+          </p>
+        </div>
         <button
           onClick={handleDeleteAll}
           disabled={deletingAll || loading || items.length === 0}
-          className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition ${
+          className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition
+                      focus:outline-none focus:ring-2 focus:ring-glds-error
+                      ${
             deletingAll || loading || items.length === 0
               ? "bg-red-900/30 text-red-200/50 cursor-not-allowed"
               : "bg-red-500/20 text-red-200 hover:bg-red-500/30 border border-red-500/30"
           }`}
-          title="Eliminar todas (solo pruebas)"
+          title="Eliminar todas las cotizaciones (solo para pruebas)"
+          aria-label="Eliminar todas las cotizaciones"
         >
-          <Trash2 className="w-4 h-4" />
+          <Trash2 className="w-4 h-4" aria-hidden="true" />
           {deletingAll ? "Eliminando..." : "Eliminar todas"}
         </button>
       </div>
-
       <div className="mb-6">
+        <label htmlFor="search-quotes" className="sr-only">
+          Buscar cotizaciones
+        </label>
         <div className="relative max-w-md">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/40" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/40" aria-hidden="true" />
           <input
-            type="text"
+            id="search-quotes"
+            type="search"
             placeholder="Buscar por código, cliente, email o empresa..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full bg-white/[.06] border border-white/10 rounded-full pl-10 pr-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-white/20"
+            className="w-full bg-white/[.06] border border-white/10 rounded-full pl-10 pr-4 py-2 text-sm
+                       focus:outline-none focus:ring-2 focus:ring-glds-primary"
+            aria-label="Buscar cotizaciones por código, cliente, email o empresa"
           />
         </div>
       </div>
+
 
       {loading ? (
         <div className="text-white/60 text-center py-12">Cargando…</div>
@@ -420,17 +446,19 @@ export default function AdminQuotes() {
           onDragOver={handleDragOver}
           onDragEnd={handleDragEnd}
         >
-          <div className="flex gap-4 overflow-x-auto pb-4">
-            <SortableContext items={COLUMNS.map((col) => col.id)}>
-              {COLUMNS.map((column) => (
-                <KanbanColumn
-                  key={column.id}
-                  column={column}
-                  quotes={quotesByStatus[column.id] || []}
-                  activeId={activeId}
-                />
-              ))}
-            </SortableContext>
+          <div className="overflow-x-auto pb-4 -mx-6 px-6">
+            <div className="flex gap-4 min-w-min">
+              <SortableContext items={COLUMNS.map((col) => col.id)}>
+                {COLUMNS.map((column) => (
+                  <KanbanColumn
+                    key={column.id}
+                    column={column}
+                    quotes={quotesByStatus[column.id] || []}
+                    activeId={activeId}
+                  />
+                ))}
+              </SortableContext>
+            </div>
           </div>
 
           <DragOverlay>

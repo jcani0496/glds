@@ -1,3 +1,5 @@
+import { Building2, Users, GraduationCap, Star, Award, TrendingUp, Quote } from "lucide-react";
+
 export default function Clients() {
   const industries = [
     {

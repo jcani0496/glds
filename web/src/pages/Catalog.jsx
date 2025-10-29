@@ -4,6 +4,7 @@ import { Search, Filter, Star, ChevronLeft, ChevronRight, X, Package, Clock, Spa
 import api from "@/lib/api";
 import ProductCard from "@/components/ProductCard";
 import CatalogCartSummary from "@/components/catalog/CatalogCartSummary.jsx";
+import { SkeletonCard } from "@/components/ui/Skeleton";
 
 const LOCAL_STORAGE_FILTERS_KEY = "glds_catalog_filters";
 const LOCAL_STORAGE_COMPARE_KEY = "glds_compare_products";
@@ -217,96 +218,123 @@ export default function Catalog() {
   return (
     <section className="container mx-auto px-6 py-10">
       <nav className="mb-6" aria-label="breadcrumb">
-        <ol className="inline-flex items-center space-x-1 text-sm text-gray-400">
+        <ol className="inline-flex items-center space-x-1 text-sm text-tertiary">
           <li className="inline-flex items-center gap-2">
-            <Link to="/" className="font-medium text-gray-200 hover:text-white">
+            <Link
+              to="/"
+              className="font-medium text-secondary hover:text-primary transition-colors duration-normal
+                         focus:outline-none focus-visible:ring-2 focus-visible:ring-glds-primary rounded"
+            >
               Inicio
             </Link>
           </li>
           <li className="inline-flex items-center gap-2">
-            <span className="text-gray-500">/</span>
-            <span className="font-medium text-gray-300">Catálogo</span>
+            <span className="text-muted">/</span>
+            <span className="font-medium text-primary">Catálogo</span>
           </li>
         </ol>
       </nav>
 
-      <header className="mb-6 flex flex-col gap-4">
-        <h1 className="text-3xl font-extrabold">Catálogo</h1>
-        <p className="max-w-2xl text-sm text-white/70">
-          Explora los productos, filtra por categoría o destacados y guarda tus preferencias para volver donde te quedaste.
-        </p>
+      <header className="mb-8 flex flex-col gap-6">
+        <div>
+          <h1 className="text-h1 font-extrabold text-primary mb-2">Catálogo</h1>
+          <p className="max-w-2xl text-body text-tertiary leading-relaxed">
+            Explora los productos, filtra por categoría o destacados y guarda tus preferencias para volver donde te quedaste.
+          </p>
+        </div>
 
-        <div className="grid gap-3 items-end md:grid-cols-12">
+        <div className="grid gap-4 items-end md:grid-cols-12">
           <div className="md:col-span-5">
-            <label className="text-sm opacity-80 mb-1 block">Buscar</label>
+            <label htmlFor="search-input" className="text-sm text-secondary font-medium mb-2 block">
+              Buscar
+            </label>
             <div className="relative">
-              <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 opacity-70" />
+              <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted" aria-hidden="true" />
               <input
+                id="search-input"
                 value={filters.q}
                 onChange={(event) => setFilter("q", event.target.value)}
                 placeholder="Nombre o SKU…"
-                className="w-full pl-9 pr-3 py-2 rounded-xl bg-white/[.06] border border-white/10 outline-none focus:ring-2 focus:ring-glds-primary/60"
+                className="w-full pl-10 pr-3 py-2.5 rounded-xl
+                           bg-glds-paper border-2 border-white/20
+                           text-primary placeholder:text-muted
+                           focus:outline-none focus:ring-2 focus:ring-glds-primary focus:border-transparent
+                           transition-all duration-normal"
               />
             </div>
           </div>
 
           <div className="md:col-span-3">
-            <label className="text-sm opacity-80 mb-1 block">Categoría</label>
-            <div className="relative">
-              <Filter className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 opacity-70" />
-              <select
-                value={filters.categoryId}
-                onChange={(event) => setFilter("category_id", event.target.value)}
-                className="w-full pl-9 pr-8 py-2 rounded-xl bg-white/[.06] border border-white/10 outline-none focus:ring-2 focus:ring-glds-primary/60 appearance-none"
-              >
-                <option value="">Todas</option>
-                {cats.map((cat) => (
-                  <option key={cat.id} value={cat.id}>
-                    {cat.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          <div className="md:col-span-2">
-            <label className="text-sm opacity-80 mb-1 block">Solo destacados</label>
-            <button
-              onClick={() => setFilter("featured", filters.featured ? null : "true")}
-              className={[
-                "w-full inline-flex items-center justify-center gap-2 rounded-xl px-3 py-2 transition",
-                filters.featured
-                  ? "bg-glds-primary text-zinc-900 shadow-glow"
-                  : "bg-white/[.06] border border-white/10 hover:bg-white/[.08]",
-              ].join(" ")}
-              aria-pressed={filters.featured}
-              type="button"
-            >
-              <Star className="w-4 h-4" />
-              <span>{filters.featured ? "Sí" : "No"}</span>
-            </button>
-          </div>
-
-          <div className="md:col-span-2">
-            <label className="text-sm opacity-80 mb-1 block">Ordenar por</label>
+            <label htmlFor="category-select" className="text-sm text-secondary font-medium mb-2 block">
+              Categoría
+            </label>
             <select
-              value={filters.sort}
-              onChange={(event) => setFilter("sort", event.target.value)}
-              className="w-full px-3 py-2 rounded-xl bg-white/[.06] border border-white/10 outline-none focus:ring-2 focus:ring-glds-primary/60"
+              id="category-select"
+              value={filters.categoryId}
+              onChange={(event) => setFilter("category_id", event.target.value)}
+              className="w-full px-3 py-2.5 rounded-xl
+                         bg-glds-paper border-2 border-white/20
+                         text-primary
+                         focus:outline-none focus:ring-2 focus:ring-glds-primary focus:border-transparent
+                         transition-all duration-normal"
             >
-              {SORT_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
+              <option value="">Todas</option>
+              {cats.map((cat) => (
+                <option key={cat.id} value={cat.id}>
+                  {cat.name}
                 </option>
               ))}
             </select>
           </div>
+
+          <div className="md:col-span-2">
+            <label htmlFor="sort-select" className="text-sm text-secondary font-medium mb-2 block">
+              Ordenar
+            </label>
+            <select
+              id="sort-select"
+              value={filters.sort}
+              onChange={(event) => setFilter("sort", event.target.value)}
+              className="w-full px-3 py-2.5 rounded-xl
+                         bg-glds-paper border-2 border-white/20
+                         text-primary
+                         focus:outline-none focus:ring-2 focus:ring-glds-primary focus:border-transparent
+                         transition-all duration-normal"
+            >
+              {SORT_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="md:col-span-2 flex items-end">
+            <button
+              onClick={() => setFilter("featured", filters.featured ? null : "true")}
+              className={`
+                w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold
+                transition-all duration-normal
+                focus:outline-none focus-visible:ring-2 focus-visible:ring-glds-primary
+                active:scale-95
+                ${
+                  filters.featured
+                    ? "bg-glds-primary text-black shadow-glow border-2 border-transparent"
+                    : "bg-glds-paper text-secondary hover:text-primary border-2 border-white/20 hover:border-white/30"
+                }
+              `}
+              aria-pressed={filters.featured}
+            >
+              <Star className="w-4 h-4" aria-hidden="true" />
+              Destacados
+            </button>
+          </div>
         </div>
 
-        <div className="rounded-2xl border border-white/10 bg-white/[.05] p-4">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="text-sm font-semibold flex items-center gap-2">
-              <Filter className="w-4 h-4" />
+        <div className="rounded-2xl border-2 border-white/20 bg-glds-paper p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-sm font-semibold text-secondary flex items-center gap-2">
+              <Filter className="w-4 h-4" aria-hidden="true" />
               Filtros Avanzados
             </h3>
             {(filters.material || filters.use_case || filters.delivery_time || filters.stock_status || filters.is_new || filters.is_popular || filters.is_eco_friendly) && (
@@ -323,21 +351,30 @@ export default function Catalog() {
                     page: 1,
                   });
                 }}
-                className="text-xs text-glds-primary hover:underline flex items-center gap-1"
+                className="text-xs text-glds-primary hover:text-glds-primary/80 font-medium flex items-center gap-1
+                           focus:outline-none focus-visible:ring-2 focus-visible:ring-glds-primary rounded
+                           transition-colors duration-normal"
               >
-                <X className="w-3 h-3" />
+                <X className="w-3 h-3" aria-hidden="true" />
                 Limpiar filtros
               </button>
             )}
           </div>
 
-          <div className="grid gap-3 md:grid-cols-4">
+          <div className="grid gap-4 md:grid-cols-4">
             <div>
-              <label className="text-xs opacity-80 mb-1 block">Material</label>
+              <label htmlFor="material-select" className="text-xs text-secondary font-medium mb-2 block">
+                Material
+              </label>
               <select
+                id="material-select"
                 value={filters.material}
                 onChange={(event) => setFilter("material", event.target.value)}
-                className="w-full px-3 py-2 text-sm rounded-xl bg-white/[.06] border border-white/10 outline-none focus:ring-2 focus:ring-glds-primary/60"
+                className="w-full px-3 py-2 text-sm rounded-xl
+                           bg-glds-bg border-2 border-white/20
+                           text-primary
+                           focus:outline-none focus:ring-2 focus:ring-glds-primary focus:border-transparent
+                           transition-all duration-normal"
               >
                 {MATERIAL_OPTIONS.map((option) => (
                   <option key={option.value} value={option.value}>
@@ -348,11 +385,18 @@ export default function Catalog() {
             </div>
 
             <div>
-              <label className="text-xs opacity-80 mb-1 block">Uso/Ocasión</label>
+              <label htmlFor="use-case-select" className="text-xs text-secondary font-medium mb-2 block">
+                Uso/Ocasión
+              </label>
               <select
+                id="use-case-select"
                 value={filters.use_case}
                 onChange={(event) => setFilter("use_case", event.target.value)}
-                className="w-full px-3 py-2 text-sm rounded-xl bg-white/[.06] border border-white/10 outline-none focus:ring-2 focus:ring-glds-primary/60"
+                className="w-full px-3 py-2 text-sm rounded-xl
+                           bg-glds-bg border-2 border-white/20
+                           text-primary
+                           focus:outline-none focus:ring-2 focus:ring-glds-primary focus:border-transparent
+                           transition-all duration-normal"
               >
                 {USE_CASE_OPTIONS.map((option) => (
                   <option key={option.value} value={option.value}>
@@ -363,11 +407,18 @@ export default function Catalog() {
             </div>
 
             <div>
-              <label className="text-xs opacity-80 mb-1 block">Tiempo de entrega</label>
+              <label htmlFor="delivery-time-select" className="text-xs text-secondary font-medium mb-2 block">
+                Tiempo de entrega
+              </label>
               <select
+                id="delivery-time-select"
                 value={filters.delivery_time}
                 onChange={(event) => setFilter("delivery_time", event.target.value)}
-                className="w-full px-3 py-2 text-sm rounded-xl bg-white/[.06] border border-white/10 outline-none focus:ring-2 focus:ring-glds-primary/60"
+                className="w-full px-3 py-2 text-sm rounded-xl
+                           bg-glds-bg border-2 border-white/20
+                           text-primary
+                           focus:outline-none focus:ring-2 focus:ring-glds-primary focus:border-transparent
+                           transition-all duration-normal"
               >
                 {DELIVERY_TIME_OPTIONS.map((option) => (
                   <option key={option.value} value={option.value}>
@@ -378,11 +429,18 @@ export default function Catalog() {
             </div>
 
             <div>
-              <label className="text-xs opacity-80 mb-1 block">Disponibilidad</label>
+              <label htmlFor="stock-status-select" className="text-xs text-secondary font-medium mb-2 block">
+                Disponibilidad
+              </label>
               <select
+                id="stock-status-select"
                 value={filters.stock_status}
                 onChange={(event) => setFilter("stock_status", event.target.value)}
-                className="w-full px-3 py-2 text-sm rounded-xl bg-white/[.06] border border-white/10 outline-none focus:ring-2 focus:ring-glds-primary/60"
+                className="w-full px-3 py-2 text-sm rounded-xl
+                           bg-glds-bg border-2 border-white/20
+                           text-primary
+                           focus:outline-none focus:ring-2 focus:ring-glds-primary focus:border-transparent
+                           transition-all duration-normal"
               >
                 {STOCK_STATUS_OPTIONS.map((option) => (
                   <option key={option.value} value={option.value}>
@@ -393,43 +451,61 @@ export default function Catalog() {
             </div>
           </div>
 
-          <div className="flex flex-wrap gap-2 mt-3">
+          <div className="flex flex-wrap gap-2 mt-4">
             <button
               onClick={() => setFilter("is_new", filters.is_new ? null : "true")}
-              className={[
-                "inline-flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-full transition",
-                filters.is_new
-                  ? "bg-glds-primary text-zinc-900 shadow-glow"
-                  : "bg-white/[.06] border border-white/10 hover:bg-white/[.08]",
-              ].join(" ")}
+              className={`
+                inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-full
+                transition-all duration-normal
+                focus:outline-none focus-visible:ring-2 focus-visible:ring-glds-primary
+                active:scale-95
+                ${
+                  filters.is_new
+                    ? "bg-glds-primary text-black shadow-glow"
+                    : "bg-glds-bg border-2 border-white/20 text-secondary hover:text-primary hover:border-white/30"
+                }
+              `}
+              aria-pressed={filters.is_new}
             >
-              <Sparkles className="w-3 h-3" />
+              <Sparkles className="w-3 h-3" aria-hidden="true" />
               Nuevo
             </button>
 
             <button
               onClick={() => setFilter("is_popular", filters.is_popular ? null : "true")}
-              className={[
-                "inline-flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-full transition",
-                filters.is_popular
-                  ? "bg-glds-primary text-zinc-900 shadow-glow"
-                  : "bg-white/[.06] border border-white/10 hover:bg-white/[.08]",
-              ].join(" ")}
+              className={`
+                inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-full
+                transition-all duration-normal
+                focus:outline-none focus-visible:ring-2 focus-visible:ring-glds-primary
+                active:scale-95
+                ${
+                  filters.is_popular
+                    ? "bg-glds-primary text-black shadow-glow"
+                    : "bg-glds-bg border-2 border-white/20 text-secondary hover:text-primary hover:border-white/30"
+                }
+              `}
+              aria-pressed={filters.is_popular}
             >
-              <Star className="w-3 h-3" />
+              <Star className="w-3 h-3" aria-hidden="true" />
               Popular
             </button>
 
             <button
               onClick={() => setFilter("is_eco_friendly", filters.is_eco_friendly ? null : "true")}
-              className={[
-                "inline-flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-full transition",
-                filters.is_eco_friendly
-                  ? "bg-glds-primary text-zinc-900 shadow-glow"
-                  : "bg-white/[.06] border border-white/10 hover:bg-white/[.08]",
-              ].join(" ")}
+              className={`
+                inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-full
+                transition-all duration-normal
+                focus:outline-none focus-visible:ring-2 focus-visible:ring-glds-primary
+                active:scale-95
+                ${
+                  filters.is_eco_friendly
+                    ? "bg-glds-primary text-black shadow-glow"
+                    : "bg-glds-bg border-2 border-white/20 text-secondary hover:text-primary hover:border-white/30"
+                }
+              `}
+              aria-pressed={filters.is_eco_friendly}
             >
-              <Leaf className="w-3 h-3" />
+              <Leaf className="w-3 h-3" aria-hidden="true" />
               Eco-Friendly
             </button>
           </div>
@@ -437,9 +513,19 @@ export default function Catalog() {
       </header>
 
       {loading ? (
-        <div className="py-16 text-center opacity-80">Cargando…</div>
+        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 2xl:grid-cols-4">
+          {Array.from({ length: filters.pageSize }).map((_, i) => (
+            <SkeletonCard key={i} />
+          ))}
+        </div>
       ) : items.length === 0 ? (
-        <div className="py-16 text-center opacity-80">Sin resultados</div>
+        <div className="py-20 text-center">
+          <Package className="w-16 h-16 mx-auto mb-4 text-muted" aria-hidden="true" />
+          <h2 className="text-h3 font-bold text-primary mb-2">Sin resultados</h2>
+          <p className="text-body text-tertiary">
+            No se encontraron productos con los filtros seleccionados
+          </p>
+        </div>
       ) : (
         <>
           <div className="relative">
@@ -447,7 +533,11 @@ export default function Catalog() {
               {items.map((product) => (
                 <div key={product.id} className="relative">
                   <ProductCard product={product} />
-                  <label className="absolute top-5 right-5 z-10 flex items-center gap-2 px-3 py-2 rounded-full bg-black/80 backdrop-blur-sm border border-white/20 cursor-pointer hover:bg-black/90 transition">
+                  <label className="absolute top-5 right-5 z-10 flex items-center gap-2 px-3 py-2 rounded-full
+                                    bg-glds-bg/90 backdrop-blur-sm border-2 border-white/20
+                                    cursor-pointer hover:bg-glds-paper hover:border-white/30
+                                    transition-all duration-normal
+                                    focus-within:ring-2 focus-within:ring-glds-primary">
                     <input
                       type="checkbox"
                       checked={compareIds.includes(product.id)}

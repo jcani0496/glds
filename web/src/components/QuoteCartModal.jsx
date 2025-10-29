@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { X, Trash2, Minus, Plus, Download, Save } from "lucide-react";
 import { useCart } from "../lib/store.jsx";
 import { quotesApi } from "../lib/api.js";
-import { toast } from "./hooks/use-toast";
+import { useToast } from "./ui/Toast";
 
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:4002";
 
@@ -26,6 +26,7 @@ export default function QuoteCartModal() {
   const [sending, setSending] = useState(false);
   const [saving, setSaving] = useState(false);
   const [shareToken, setShareToken] = useState(null);
+  const toast = useToast();
 
   useEffect(() => {
     const onKey = (e) => e.key === "Escape" && navigate(-1);
@@ -68,12 +69,11 @@ export default function QuoteCartModal() {
       });
       const trackingToken = res.data?.tracking_token;
       dispatch({ type: "CLEAR" });
-      toast({
-        title: "Cotización enviada",
-        description: trackingToken
-          ? "Te enviamos un correo con el enlace de seguimiento."
-          : "Recibirás confirmación por correo.",
-      });
+      toast.success(
+        trackingToken
+          ? "Cotización enviada. Te enviamos un correo con el enlace de seguimiento"
+          : "Cotización enviada. Recibirás confirmación por correo"
+      );
       if (trackingToken) {
         navigate(`/track/${trackingToken}`);
       } else {
@@ -81,7 +81,7 @@ export default function QuoteCartModal() {
       }
     } catch (e) {
       console.error(e);
-      toast({ title: "Error", description: "No se pudo enviar la cotización.", variant: "destructive" });
+      toast.error("No se pudo enviar la cotización. Intenta de nuevo");
     } finally {
       setSending(false);
     }

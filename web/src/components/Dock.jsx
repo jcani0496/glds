@@ -10,34 +10,40 @@ export default function Dock() {
     { to: "/cart", label: "Cotizar", Icon: ShoppingCart },
   ];
 
-  const baseBtn =
-    "inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm " +
-    "bg-zinc-900/60 hover:bg-zinc-900/80 text-zinc-200/90 hover:text-white " +
-    "border border-white/10 shadow-[inset_0_1px_0_0_rgba(255,255,255,.04)] " +
-    "transition-colors focus:outline-none focus-visible:ring-2 " +
-    "focus-visible:ring-violet-400/70 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent";
-
   return (
     <div
-      className="pointer-events-auto fixed bottom-6 left-1/2 z-40 -translate-x-1/2"
+      className="pointer-events-auto fixed bottom-6 left-1/2 z-40 -translate-x-1/2
+                 max-md:bottom-0 max-md:left-0 max-md:right-0 max-md:translate-x-0
+                 max-md:w-full max-md:px-2 max-md:pb-2"
       aria-label="Navegación principal"
     >
       <nav
-        className="backdrop-blur-md bg-zinc-900/30 border border-white/10 rounded-2xl p-1.5
-                   shadow-[0_8px_30px_rgba(0,0,0,.35)]"
+        className="backdrop-blur-md bg-glds-paper/90 border border-white/20 rounded-2xl
+                   max-md:rounded-b-none p-1.5 shadow-card
+                   motion-safe:transition-all motion-safe:duration-normal"
       >
-        {/* Más separación entre botones */}
-        <ul className="flex items-center gap-3 md:gap-4">
+        <ul className="flex items-center justify-center gap-2 md:gap-3">
           {items.map(({ to, label, Icon }) => (
-            <li key={to} className="shrink-0">
+            <li key={to} className="shrink-0 flex-1 md:flex-initial">
               <NavLink
                 to={to}
                 className={({ isActive }) =>
-                  `${baseBtn} ${isActive ? "ring-2 ring-violet-400/70" : ""}`
+                  `inline-flex items-center justify-center gap-2 px-3 py-2.5 md:px-4 rounded-xl text-sm font-medium
+                   transition-all duration-normal
+                   focus:outline-none focus-visible:ring-2 focus-visible:ring-glds-primary
+                   focus-visible:ring-offset-2 focus-visible:ring-offset-glds-bg
+                   ${
+                     isActive
+                       ? "bg-glds-primary/20 border-2 border-glds-primary text-glds-primaryLight shadow-glow"
+                       : "bg-glds-paper hover:bg-glds-paperLight text-secondary hover:text-primary border-2 border-transparent"
+                   }
+                   active:scale-95 motion-safe:transition-transform
+                   w-full md:w-auto`
                 }
+                aria-current={({ isActive }) => (isActive ? "page" : undefined)}
               >
-                <Icon className="h-4 w-4" aria-hidden="true" />
-                <span>{label}</span>
+                <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
+                <span className="max-md:text-xs">{label}</span>
               </NavLink>
             </li>
           ))}

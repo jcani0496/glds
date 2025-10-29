@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Mail, Phone, MapPin, Clock, Send, MessageCircle } from "lucide-react";
-import { toast } from "@/components/hooks/use-toast";
+import { useToast } from "@/components/ui/Toast";
 import api from "@/lib/api";
 
 export default function Contact() {
@@ -12,33 +12,23 @@ export default function Contact() {
     message: "",
   });
   const [sending, setSending] = useState(false);
+  const toast = useToast();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!form.name || !form.email || !form.message) {
-      toast({
-        title: "Campos requeridos",
-        description: "Por favor completa nombre, email y mensaje.",
-        variant: "destructive",
-      });
+      toast.error("Por favor completa nombre, email y mensaje");
       return;
     }
 
     try {
       setSending(true);
       await api.post("/contact", form);
-      toast({
-        title: "Mensaje enviado",
-        description: "Nos pondremos en contacto contigo pronto.",
-      });
+      toast.success("Mensaje enviado. Nos pondremos en contacto contigo pronto");
       setForm({ name: "", email: "", phone: "", company: "", message: "" });
     } catch (error) {
       console.error(error);
-      toast({
-        title: "Error",
-        description: "No se pudo enviar el mensaje. Intenta de nuevo.",
-        variant: "destructive",
-      });
+      toast.error("No se pudo enviar el mensaje. Intenta de nuevo");
     } finally {
       setSending(false);
     }

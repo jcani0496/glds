@@ -1,32 +1,47 @@
 import { useEffect, useState } from "react";
+import { Edit3, Trash2, Save, X, FolderPlus, Folder } from "lucide-react";
 import api from "../lib/api";
-import { Edit3, Trash2, Save, X } from "lucide-react";
+import Button from '@/components/ui/Button';
+import Input from '@/components/ui/Input';
+import { useToast } from '@/components/ui/Toast';
 
 export default function AdminCategories() {
   const [items, setItems] = useState([]);
   const [name, setName] = useState("");
   const [loading, setLoading] = useState(false);
-
-  // edición inline
   const [editId, setEditId] = useState(null);
   const [editName, setEditName] = useState("");
+  const [error, setError] = useState("");
+  const { showToast } = useToast();
 
   async function load() {
-    const { data } = await api.get("/categories");
-    setItems(data);
+    try {
+      const { data } = await api.get("/categories");
+      setItems(data);
+    } catch (error) {
+      showToast('Error al cargar categorías', 'error');
+    }
   }
+
   useEffect(() => {
     load();
   }, []);
 
   async function create(e) {
     e.preventDefault();
-    if (!name.trim()) return;
+    if (!name.trim()) {
+      setError('El nombre es requerido');
+      return;
+    }
     setLoading(true);
+    setError("");
     try {
       await api.post("/categories", { name: name.trim() });
       setName("");
       await load();
+      showToast('Categoría creada exitosamente', 'success');
+    } catch (error) {
+      showToast('Error al crear categoría', 'error');
     } finally {
       setLoading(false);
     }
@@ -34,94 +49,155 @@ export default function AdminCategories() {
 
   async function del(id) {
     if (!confirm("¿Eliminar esta categoría?")) return;
-    await api.delete("/categories/" + id);
-    await load();
+    try {
+      await api.delete("/categories/" + id);
+      await load();
+      showToast('Categoría eliminada', 'success');
+    } catch (error) {
+      showToast('Error al eliminar categoría', 'error');
+    }
   }
 
   function startEdit(c) {
     setEditId(c.id);
     setEditName(c.name);
   }
+
   function cancelEdit() {
     setEditId(null);
     setEditName("");
   }
+
   async function saveEdit() {
-    if (!editId) return;
-    await api.put(`/categories/${editId}`, { name: editName.trim() });
-    cancelEdit();
-    await load();
+    if (!editId || !editName.trim()) return;
+    try {
+      await api.put(`/categories/${editId}`, { name: editName.trim() });
+      cancelEdit();
+      await load();
+      showToast('Categoría actualizada', 'success');
+    } catch (error) {
+      showToast('Error al actualizar categoría', 'error');
+    }
   }
 
   return (
     <section className="container mx-auto px-6 py-8">
-      <h3 className="text-2xl font-semibold mb-4">Categorías</h3>
+      <header className="mb-6">
+        <h1 className="text-h2 font-bold text-primary">Categorías</h1>
+        <p className="text-body text-tertiary mt-1">
+          Organiza tus productos en categorías
+        </p>
+      </header>
 
-      <form onSubmit={create} className="flex items-center gap-3 mb-6">
-        <input
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          placeholder="Nombre"
-          className="w-[260px] px-3 py-2 rounded-lg bg-white/[.06] border border-white/10 outline-none focus:ring-2 focus:ring-glds-primary/60"
-        />
-        <button
-          type="submit"
-          disabled={!name.trim() || loading}
-          className={`rounded-full px-5 py-2.5 font-semibold transition
-          ${
-            !name.trim() || loading
-              ? "bg-white/10 text-white/50 cursor-not-allowed"
-              : "bg-glds-primary text-zinc-900 hover:shadow-glow active:scale-[.98]"
-          }
-          focus:outline-none focus:ring-2 focus:ring-glds-primary/60`}
-        >
-          Añadir
-        </button>
-      </form>
+      <div className="grid lg:grid-cols-2 gap-6">
+        {/* Formulario de creación */}
+        <div className="bg-glds-paper border-2 border-white/20 p-6 rounded-2xl">
+          <h2 className="text-h4 font-bold text-primary mb-4 flex items-center gap-2">
+            <FolderPlus className="w-5 h-5" aria-hidden="true" />
+            Nueva categoría
+          </h2>
+          <form onSubmit={create} className="space-y-4">
+            <Input
+              label="Nombre de la categoría"
+              placeholder="Ej: Textiles, Tecnología, Oficina..."
+              value={name}
+              onChange={(e) => {
+                setName(e.target.value);
+                setError("");
+              }}
+              error={error}
+              required
+            />
+            <Button
+              type="submit"
+              disabled={!name.trim() || loading}
+              variant="primary"
+            >
+              {loading ? 'Creando...' : 'Añadir categoría'}
+            </Button>
+          </form>
+        </div>
 
-      <ul className="space-y-2">
-        {items.map((c) => {
-          const editing = editId === c.id;
-          return (
-            <li key={c.id} className="bg-white/5 rounded-xl p-3 flex items-center justify-between border border-white/10">
-              {!editing ? (
-                <>
-                  <span>{c.name}</span>
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => startEdit(c)}
-                      className="px-3 py-1.5 rounded-full bg-white/10 hover:bg-white/15 inline-flex items-center gap-2"
-                    >
-                      <Edit3 className="w-4 h-4" /> Editar
-                    </button>
-                    <button
-                      onClick={() => del(c.id)}
-                      className="px-3 py-1.5 rounded-full bg-red-500/20 text-red-200 hover:bg-red-500/30 inline-flex items-center gap-2"
-                    >
-                      <Trash2 className="w-4 h-4" /> Eliminar
-                    </button>
-                  </div>
-                </>
-              ) : (
-                <div className="w-full flex items-center gap-3">
-                  <input
-                    className="flex-1 bg-white/10 rounded px-3 py-2"
-                    value={editName}
-                    onChange={(e) => setEditName(e.target.value)}
-                    placeholder="Nombre"
-                  />
-                  <button onClick={cancelEdit} className="px-3 py-2 rounded-full bg-white/10 hover:bg-white/15 inline-flex items-center gap-2">
-                    <X className="w-4 h-4" /> Cancelar
-                  </button>
-                  <button onClick={saveEdit} className="px-3 py-2 rounded-full bg-glds-primary text-zinc-900 font-semibold inline-flex items-center gap-2 hover:shadow-glow active:scale-[.98]">
-                    <Save className="w-4 h-4" /> Guardar
-                  </button>
-                </div>
-              )}
-            </li>
-          );
-        })}
-      </ul>
+        {/* Listado */}
+        <div>
+          <h2 className="text-h4 font-bold text-primary mb-4">
+            Categorías ({items.length})
+          </h2>
+          {items.length === 0 ? (
+            <div className="bg-glds-paper border-2 border-white/20 rounded-2xl p-8 text-center">
+              <Folder className="w-12 h-12 mx-auto mb-3 text-muted" />
+              <p className="text-secondary">No hay categorías registradas</p>
+              <p className="text-sm text-tertiary mt-1">Crea tu primera categoría para organizar productos</p>
+            </div>
+          ) : (
+            <ul className="space-y-3" role="list">
+              {items.map((c) => {
+                const editing = editId === c.id;
+                return (
+                  <li
+                    key={c.id}
+                    className="bg-glds-paper border-2 border-white/20 rounded-xl p-4
+                               hover:bg-glds-paperLight hover:border-white/30
+                               transition-all duration-normal"
+                  >
+                    {!editing ? (
+                      <div className="flex items-center justify-between gap-4">
+                        <div className="flex items-center gap-3 flex-1 min-w-0">
+                          <Folder className="w-5 h-5 text-glds-primary flex-shrink-0" aria-hidden="true" />
+                          <span className="font-medium text-primary truncate">{c.name}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            onClick={() => startEdit(c)}
+                            variant="ghost"
+                            size="sm"
+                            aria-label={`Editar ${c.name}`}
+                          >
+                            <Edit3 className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            onClick={() => del(c.id)}
+                            variant="ghost"
+                            size="sm"
+                            aria-label={`Eliminar ${c.name}`}
+                          >
+                            <Trash2 className="w-4 h-4 text-glds-error" />
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-3">
+                        <Input
+                          value={editName}
+                          onChange={(e) => setEditName(e.target.value)}
+                          placeholder="Nombre de la categoría"
+                          className="flex-1"
+                          autoFocus
+                        />
+                        <Button
+                          onClick={cancelEdit}
+                          variant="outline"
+                          size="sm"
+                        >
+                          <X className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          onClick={saveEdit}
+                          variant="primary"
+                          size="sm"
+                          disabled={!editName.trim()}
+                        >
+                          <Save className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </div>
+      </div>
     </section>
   );
 }

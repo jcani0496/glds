@@ -30,27 +30,50 @@ router.post('/', async (req, res) => {
       <p>Saludos,<br>Equipo GLDS</p>
     `;
 
+    let emailsSent = 0;
+    let emailErrors = [];
+
+    // Enviar email al admin
     try {
       await sendContactEmail({
         to: process.env.CONTACT_EMAIL || 'ventas@glds.com',
         subject: `Nuevo mensaje de contacto - ${name}`,
         html: emailContent,
       });
+      emailsSent++;
+      console.log(`✓ Email enviado al admin (${process.env.CONTACT_EMAIL || 'ventas@glds.com'})`);
+    } catch (emailError) {
+      console.error('✗ Error al enviar email al admin:', emailError.message);
+      emailErrors.push({ recipient: 'admin', error: emailError.message });
+    }
 
+    // Enviar email de confirmación al cliente
+    try {
       await sendContactEmail({
         to: email,
         subject: 'Hemos recibido tu mensaje - GLDS',
         html: confirmationEmail,
       });
+      emailsSent++;
+      console.log(`✓ Email de confirmación enviado a ${email}`);
     } catch (emailError) {
-      console.error('Error al enviar email (simulando envío):', emailError.message);
-      console.log('Mensaje de contacto recibido:', { name, email, phone, company, message });
+      console.error('✗ Error al enviar email de confirmación:', emailError.message);
+      emailErrors.push({ recipient: 'cliente', error: emailError.message });
     }
 
-    res.json({ success: true, message: 'Mensaje enviado correctamente' });
+    // Log del mensaje recibido
+    console.log('📧 Mensaje de contacto recibido:', { name, email, phone, company, message });
+
+    // Responder con éxito incluso si los emails fallaron (el mensaje se guardó en logs)
+    res.json({
+      success: true,
+      message: 'Mensaje recibido correctamente',
+      emailsSent,
+      emailErrors: emailErrors.length > 0 ? emailErrors : undefined
+    });
   } catch (error) {
     console.error('Error en formulario de contacto:', error);
-    res.status(500).json({ error: 'Error al enviar el mensaje' });
+    res.status(500).json({ error: 'Error al procesar el mensaje' });
   }
 });
 
