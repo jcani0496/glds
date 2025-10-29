@@ -5,73 +5,118 @@ import { db } from "../db.js";
 
 const r = Router();
 
-// GET /stats/summary  (montado con requireAuth en index.js)
+ // GET /stats/summary  (montado con requireAuth en index.js)
 r.get("/summary", async (req, res) => {
-  const now = dayjs();
-  const from7  = now.subtract(7,  "day").format("YYYY-MM-DD HH:mm:ss");
-  const from14 = now.subtract(13, "day").startOf("day");
-  const from30 = now.subtract(30, "day").format("YYYY-MM-DD HH:mm:ss");
+  try {
+    const now = dayjs();
+    const from7  = now.subtract(7,  "day").format("YYYY-MM-DD HH:mm:ss");
+    const from14 = now.subtract(13, "day").startOf("day");
+    const from30 = now.subtract(30, "day").format("YYYY-MM-DD HH:mm:ss");
 
-  const totalRow = await db.prepare(`SELECT COUNT(*) as c FROM quotes`).get();
-  const total = totalRow?.c || 0;
+    const totalRow = await db.prepare(`SELECT COUNT(*) as c FROM quotes`).get();
+    const total = totalRow?.c || 0;
 
-  const pendingRow = await db.prepare(`SELECT COUNT(*) as c FROM quotes WHERE status='pending'`).get();
-  const pending = pendingRow?.c || 0;
+    const pendingRow = await db.prepare(`SELECT COUNT(*) as c FROM quotes WHERE status='pending'`).get();
+    const pending = pendingRow?.c || 0;
 
-  const approvedRow = await db.prepare(`SELECT COUNT(*) as c FROM quotes WHERE status='approved'`).get();
-  const approved = approvedRow?.c || 0;
+    const approvedRow = await db.prepare(`SELECT COUNT(*) as c FROM quotes WHERE status='approved'`).get();
+    const approved = approvedRow?.c || 0;
 
-  const closedRow = await db.prepare(`SELECT COUNT(*) as c FROM quotes WHERE status='closed'`).get();
-  const closed = closedRow?.c || 0;
+    const closedRow = await db.prepare(`SELECT COUNT(*) as c FROM quotes WHERE status='closed'`).get();
+    const closed = closedRow?.c || 0;
 
-  const last7Row = await db
-    .prepare(`SELECT COUNT(*) as c FROM quotes WHERE created_at >= $1`)
-    .get(from7);
-  const last7 = last7Row?.c || 0;
+    const last7Row = await db
+      .prepare(`SELECT COUNT(*) as c FROM quotes WHERE created_at >= $1`)
+      .get(from7);
+    const last7 = last7Row?.c || 0;
 
-  // Serie últimos 14 días
-  const rows = await db.prepare(`
-    SELECT DATE(created_at) as d, COUNT(*) as c
-    FROM quotes
-    WHERE DATE(created_at) >= $1
-    GROUP BY DATE(created_at)
-    ORDER BY d ASC
-  `).all(from14.format("YYYY-MM-DD"));
+    // Serie últimos 14 días
+    const rows = await db.prepare(`
+      SELECT DATE(created_at) as d, COUNT(*) as c
+      FROM quotes
+      WHERE DATE(created_at) >= $1
+      GROUP BY DATE(created_at)
+      ORDER BY d ASC
+    `).all(from14.format("YYYY-MM-DD"));
 
-  const series14d = [];
-  for (let i = 0; i < 14; i++) {
-    const d = from14.add(i, "day").format("YYYY-MM-DD");
-    const f = rows.find(r => r.d === d);
-    series14d.push({ day: d, count: f ? f.c : 0 });
+    const series14d = [];
+    for (let i = 0; i < 14; i++) {
+      const d = from14.add(i, "day").format("YYYY-MM-DD");
+      const f = rows.find(r => r.d === d);
+      series14d.push({ day: d, count: f ? f.c : 0 });
+    }
+
+    // Top productos (30d) por líneas de ítem
+    const top_products = await db.prepare(`
+      SELECT COALESCE(qi.product_name, 'Producto') AS label, COUNT(*) AS count
+      FROM quote_items qi
+      JOIN quotes q ON q.id = qi.quote_id
+      WHERE q.created_at >= $1
+      GROUP BY label
+      ORDER BY count DESC
+      LIMIT 5
+    `).all(from30);
+
+    // Top categorías (30d) — requiere product_id asociado
+    const top_categories = await db.prepare(`
+      SELECT COALESCE(c.name, 'Sin categoría') AS label, COUNT(*) AS count
+      FROM quote_items qi
+      JOIN quotes q ON q.id = qi.quote_id
+      JOIN products p ON p.id = qi.product_id
+      LEFT JOIN categories c ON c.id = p.category_id
+      WHERE q.created_at >= $1
+      GROUP BY label
+      ORDER BY count DESC
+      LIMIT 5
+    `).all(from30);
+
+    // Clientes únicos (30d)
+    const uniqueCustomersRow = await db.prepare(`
+      SELECT COUNT(DISTINCT customer_email) AS c
+      FROM quotes
+      WHERE created_at >= $1
+    `).get(from30);
+    const unique_customers_30d = uniqueCustomersRow?.c || 0;
+
+    // PDFs enviados (30d): hay pdf_path
+    const pdfsSentRow = await db.prepare(`
+      SELECT COUNT(*) AS c
+      FROM quotes
+      WHERE pdf_path IS NOT NULL AND TRIM(pdf_path) <> ''
+        AND created_at >= $1
+    `).get(from30);
+    const pdfs_sent_30d = pdfsSentRow?.c || 0;
+
+    // Ítems por cotización (promedio, 30d)
+    const avgRow = await db.prepare(`
+      SELECT AVG(cnt) AS avg_items
+      FROM (
+        SELECT quote_id, COUNT(*) AS cnt
+        FROM quote_items
+        GROUP BY quote_id
+      ) sub
+      JOIN quotes q ON q.id = sub.quote_id
+      WHERE q.created_at >= $1
+    `).get(from30);
+    const avg_items_per_quote = avgRow?.avg_items || 0;
+
+    res.json({
+      total,
+      pending,
+      approved,
+      closed,
+      last7,
+      series14d,
+      top_products,
+      top_categories,
+      unique_customers_30d,
+      pdfs_sent_30d,
+      avg_items_per_quote,
+    });
+  } catch (error) {
+    console.error("Error in summary stats:", error);
+    res.status(500).json({ error: "Error al obtener estadísticas", message: error.message });
   }
-
-  // Top productos (30d) por líneas de ítem
-  const top_products = await db.prepare(`
-    SELECT COALESCE(qi.product_name, 'Producto') AS label, COUNT(*) AS count
-    FROM quote_items qi
-    JOIN quotes q ON q.id = qi.quote_id
-    WHERE q.created_at >= $1
-    GROUP BY label
-    ORDER BY count DESC
-    LIMIT 5
-  `).all(from30);
-
-  // Top categorías (30d) — requiere product_id asociado
-  const top_categories = await db.prepare(`
-    SELECT COALESCE(c.name, 'Sin categoría') AS label, COUNT(*) AS count
-    FROM quote_items qi
-    JOIN quotes q ON q.id = qi.quote_id
-    JOIN products p ON p.id = qi.product_id
-    LEFT JOIN categories c ON c.id = p.category_id
-    WHERE q.created_at >= $1
-    GROUP BY label
-    ORDER BY count DESC
-    LIMIT 5
-  `).all(from30);
-    unique_customers_30d,
-    pdfs_sent_30d,
-    avg_items_per_quote,
-  });
 });
 
 r.get("/products-analytics", async (req, res) => {
