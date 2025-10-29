@@ -1,5 +1,5 @@
 import { NavLink } from "react-router-dom";
-import { LayoutGrid, Package, Tags, FileSpreadsheet } from "lucide-react";
+import { LayoutGrid, Package, Tags, FileSpreadsheet, Users, BarChart3 } from "lucide-react";
 
 export default function AdminDock() {
   const items = [
@@ -7,6 +7,8 @@ export default function AdminDock() {
     { to: "/admin/products", label: "Productos", Icon: Package },
     { to: "/admin/categories", label: "Categorías", Icon: Tags },
     { to: "/admin/quotes", label: "Cotizaciones", Icon: FileSpreadsheet },
+    { to: "/admin/customers", label: "Clientes", Icon: Users },
+    { to: "/admin/reports", label: "Reportes", Icon: BarChart3 },
   ];
 
   const baseBtn =

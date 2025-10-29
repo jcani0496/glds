@@ -18,6 +18,7 @@ import quotesRoutes from "./routes/quotes.routes.js";
 import statsRoutes from "./routes/stats.routes.js";
 import colorsRoutes from './routes/colors.routes.js';
 import contactRoutes from './routes/contact.routes.js';
+import customersRoutes from './routes/customers.routes.js';
 
 const app = express();
 
@@ -47,6 +48,7 @@ app.use("/contact", contactRoutes);
 
 // Rutas (protegidas)
 app.use("/stats", requireAuth, statsRoutes);
+app.use("/customers", requireAuth, customersRoutes);
 
 // Otras rutas (no proteger a nivel prefijo porque internamente ya se decide)
 // - /quotes: POST público; GET/LIST/STATUS requieren auth
@@ -54,6 +56,7 @@ app.use("/products", productsRoutes);
 app.use("/categories", categoriesRoutes);
 app.use("/uploads", uploadsRoutes);
 app.use('/colors', colorsRoutes);
+// ... existing code ...
 
 // Socket.IO
 const server = http.createServer(app);

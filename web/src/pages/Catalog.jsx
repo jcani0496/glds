@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
-import { useSearchParams, Link } from "react-router-dom";
-import { Search, Filter, Star, ChevronLeft, ChevronRight, X, Package, Clock, Sparkles, Leaf } from "lucide-react";
+import { useSearchParams, Link, useNavigate } from "react-router-dom";
+import { Search, Filter, Star, ChevronLeft, ChevronRight, X, Package, Clock, Sparkles, Leaf, GitCompare } from "lucide-react";
 import api from "@/lib/api";
 import ProductCard from "@/components/ProductCard";
 import CatalogCartSummary from "@/components/catalog/CatalogCartSummary.jsx";
 
 const LOCAL_STORAGE_FILTERS_KEY = "glds_catalog_filters";
+const LOCAL_STORAGE_COMPARE_KEY = "glds_compare_products";
 const PAGE_SIZE_DEFAULT = 12;
 
 const SORT_OPTIONS = [
@@ -73,10 +74,19 @@ function persistFilters(filters) {
 
 export default function Catalog() {
   const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
   const [cats, setCats] = useState([]);
   const [items, setItems] = useState([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
+  const [compareIds, setCompareIds] = useState(() => {
+    try {
+      const saved = localStorage.getItem(LOCAL_STORAGE_COMPARE_KEY);
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
 
   useEffect(() => {
     const saved = readSavedFilters();
@@ -435,7 +445,32 @@ export default function Catalog() {
           <div className="relative">
             <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 2xl:grid-cols-4">
               {items.map((product) => (
-                <ProductCard key={product.id} product={product} />
+                <div key={product.id} className="relative">
+                  <ProductCard product={product} />
+                  <label className="absolute top-5 right-5 z-10 flex items-center gap-2 px-3 py-2 rounded-full bg-black/80 backdrop-blur-sm border border-white/20 cursor-pointer hover:bg-black/90 transition">
+                    <input
+                      type="checkbox"
+                      checked={compareIds.includes(product.id)}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          if (compareIds.length >= 4) {
+                            alert("Máximo 4 productos para comparar");
+                            return;
+                          }
+                          const newIds = [...compareIds, product.id];
+                          setCompareIds(newIds);
+                          localStorage.setItem(LOCAL_STORAGE_COMPARE_KEY, JSON.stringify(newIds));
+                        } else {
+                          const newIds = compareIds.filter(id => id !== product.id);
+                          setCompareIds(newIds);
+                          localStorage.setItem(LOCAL_STORAGE_COMPARE_KEY, JSON.stringify(newIds));
+                        }
+                      }}
+                      className="w-4 h-4 rounded border-white/30 bg-white/10 text-glds-primary focus:ring-glds-primary focus:ring-offset-0"
+                    />
+                    <span className="text-xs font-medium text-white">Comparar</span>
+                  </label>
+                </div>
               ))}
             </div>
             <CatalogCartSummary />
@@ -480,6 +515,21 @@ export default function Catalog() {
             </select>
           </div>
         </>
+      )}
+
+      {compareIds.length > 0 && (
+        <div className="fixed bottom-6 right-6 z-40">
+          <button
+            onClick={() => {
+              localStorage.setItem(LOCAL_STORAGE_COMPARE_KEY, JSON.stringify(compareIds));
+              navigate(`/compare?ids=${compareIds.join(",")}`);
+            }}
+            className="flex items-center gap-3 px-6 py-4 rounded-full bg-glds-primary text-zinc-900 font-semibold shadow-lg hover:shadow-glow transition"
+          >
+            <GitCompare className="w-5 h-5" />
+            <span>Comparar ({compareIds.length})</span>
+          </button>
+        </div>
       )}
     </section>
   );

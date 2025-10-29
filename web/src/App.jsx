@@ -15,6 +15,7 @@ import Catalog from "./pages/Catalog.jsx";
 import Thanks from "./pages/Thanks.jsx";
 import TrackQuote from "./pages/TrackQuote.jsx";
 import ResumeQuote from "./pages/ResumeQuote.jsx";
+import ProductCompare from "./pages/ProductCompare.jsx";
 
 // Admin (ajusta si tus nombres/rutas difieren)
 import AdminLogin from "./pages/AdminLogin.jsx";
@@ -22,6 +23,8 @@ import Admin from "./pages/Admin.jsx";
 import AdminProducts from "./pages/AdminProducts.jsx";
 import AdminCategories from "./pages/AdminCategories.jsx";
 import AdminQuotes from "./pages/AdminQuotes.jsx";
+import AdminCustomers from "./pages/AdminCustomers.jsx";
+import AdminReports from "./pages/AdminReports.jsx";
 import AdminDock from "@/components/AdminDock.jsx";
 
 /* --------- Protected route (admin) --------- */
@@ -69,7 +72,6 @@ function Layout() {
   );
 }
 
-
 export default function App() {
   return (
     <BrowserRouter>
@@ -81,6 +83,7 @@ export default function App() {
             <Route path="/about" element={<About />} />
             <Route path="/contact" element={<Contact />} />
             <Route path="/catalog" element={<Catalog />} />
+            <Route path="/compare" element={<ProductCompare />} />
             <Route path="/thanks" element={<Thanks />} />
             <Route path="/track/:token" element={<TrackQuote />} />
             <Route path="/resume/:token" element={<ResumeQuote />} />
@@ -103,6 +106,8 @@ export default function App() {
             <Route path="products" element={<AdminProducts />} />
             <Route path="categories" element={<AdminCategories />} />
             <Route path="quotes" element={<AdminQuotes />} />
+            <Route path="customers" element={<AdminCustomers />} />
+            <Route path="reports" element={<AdminReports />} />
           </Route>
 
           {/* Fallback */}
@@ -111,5 +116,4 @@ export default function App() {
       </CartProvider>
     </BrowserRouter>
   );
-  return <Layout />;
 }

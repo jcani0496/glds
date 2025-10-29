@@ -117,6 +117,56 @@ CREATE TABLE IF NOT EXISTS quote_drafts (
   created_at TEXT DEFAULT CURRENT_TIMESTAMP,
   updated_at TEXT DEFAULT CURRENT_TIMESTAMP
 );
+
+/* CRM: Tabla de clientes */
+CREATE TABLE IF NOT EXISTS customers (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL,
+  email TEXT UNIQUE NOT NULL,
+  phone TEXT,
+  company TEXT,
+  address TEXT,
+  city TEXT,
+  country TEXT,
+  notes TEXT,
+  tags TEXT,
+  status TEXT DEFAULT 'active',
+  total_quotes INTEGER DEFAULT 0,
+  last_quote_date TEXT,
+  created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+  updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+);
+
+/* Interacciones con clientes (llamadas, emails, reuniones, etc.) */
+CREATE TABLE IF NOT EXISTS customer_interactions (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  customer_id INTEGER NOT NULL,
+  type TEXT NOT NULL,
+  subject TEXT,
+  notes TEXT,
+  created_by TEXT,
+  created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY(customer_id) REFERENCES customers(id) ON DELETE CASCADE
+);
+
+/* Trigger para actualizar automáticamente el contador de cotizaciones */
+CREATE TRIGGER IF NOT EXISTS update_customer_quote_count
+AFTER INSERT ON quotes
+BEGIN
+  -- Actualiza el contador y la fecha de la última cotización para el cliente existente
+  UPDATE customers
+  SET total_quotes = (
+    SELECT COUNT(*) FROM quotes WHERE customer_email = NEW.customer_email
+  ),
+  last_quote_date = NEW.created_at,
+  updated_at = CURRENT_TIMESTAMP
+  WHERE email = NEW.customer_email;
+
+  -- Si no existe el cliente, lo crea como 'lead' con la primera cotización
+  INSERT OR IGNORE INTO customers (name, email, phone, company, total_quotes, last_quote_date, status)
+  SELECT NEW.customer_name, NEW.customer_email, NEW.customer_phone, NEW.customer_company, 1, NEW.created_at, 'lead'
+  WHERE NOT EXISTS (SELECT 1 FROM customers WHERE email = NEW.customer_email);
+END;
 `);
 
 /* Migración ligera por si la DB existía sin nuevas columnas */
@@ -159,11 +209,11 @@ CREATE INDEX IF NOT EXISTS idx_colors_active ON colors(active);
 CREATE INDEX IF NOT EXISTS idx_prod_colors ON product_colors(product_id, color_id);
 CREATE INDEX IF NOT EXISTS idx_quote_events_quote ON quote_events(quote_id, created_at);
 CREATE INDEX IF NOT EXISTS idx_quote_drafts_token ON quote_drafts(token);
-CREATE INDEX IF NOT EXISTS idx_products_cat ON products(category_id);
-CREATE INDEX IF NOT EXISTS idx_products_feat ON products(featured);
-CREATE INDEX IF NOT EXISTS idx_products_created ON products(created_at);
-CREATE INDEX IF NOT EXISTS idx_colors_active ON colors(active);
-CREATE INDEX IF NOT EXISTS idx_prod_colors ON product_colors(product_id, color_id);
+CREATE INDEX IF NOT EXISTS idx_quotes_status ON quotes(status);
+CREATE INDEX IF NOT EXISTS idx_quotes_tracking_token ON quotes(tracking_token);
+CREATE INDEX IF NOT EXISTS idx_customers_email ON customers(email);
+CREATE INDEX IF NOT EXISTS idx_customers_status ON customers(status);
+CREATE INDEX IF NOT EXISTS idx_customer_interactions_customer ON customer_interactions(customer_id, created_at);
 `);
 
 /* Migración ligera por si la DB existía sin customer_company */
