@@ -148,6 +148,8 @@ export async function buildQuotePDF({ quote, items }) {
         folder: "glds/quotes",
         resource_type: "raw",
         public_id: quote.code,
+        type: "upload",
+        access_mode: "public",
       });
       webPath = uploadResult.secure_url;
 
