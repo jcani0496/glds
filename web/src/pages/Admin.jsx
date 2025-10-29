@@ -12,6 +12,7 @@ import {
   FileText,
   Trophy,
   Boxes,
+  Activity,
 } from "lucide-react";
 
 /* --------- Util: Sparkline simple (SVG) --------- */
@@ -126,6 +127,47 @@ export default function Admin() {
     return stats.series14d.map((d) => ({ label: d.day, value: d.count }));
   }, [stats]);
 
+  const kpiCards = useMemo(
+    () => [
+      {
+        id: "total",
+        title: "Cotizaciones totales",
+        icon: Activity,
+        value: stats?.total ?? "—",
+        description: "Histórico registrado",
+      },
+      {
+        id: "last7",
+        title: "Nuevas (7 días)",
+        icon: TrendingUp,
+        value: stats?.last7 ?? "—",
+        description: "Ingresaron esta semana",
+      },
+      {
+        id: "pending",
+        title: "Pendientes",
+        icon: Clock,
+        value: stats?.pending ?? "—",
+        description: "En seguimiento",
+      },
+      {
+        id: "approved",
+        title: "Aprobadas",
+        icon: CheckCircle2,
+        value: stats?.approved ?? "—",
+        description: "Con luz verde",
+      },
+      {
+        id: "closed",
+        title: "Cerradas",
+        icon: XCircle,
+        value: stats?.closed ?? "—",
+        description: "Finalizadas",
+      },
+    ],
+    [stats]
+  );
+
   return (
     <section className="mx-auto max-w-7xl px-6">
       <h1 className="text-3xl font-extrabold mb-6">Panel Administrador</h1>
@@ -137,34 +179,17 @@ export default function Admin() {
           style={{ gridTemplateColumns: "repeat(12, minmax(0, 1fr))" }}
         >
           {/* Métricas rápidas */}
-          <Bento
-            title="Nuevas (7 días)"
-            icon={TrendingUp}
-            className="col-span-12 sm:col-span-3"
-          >
-            <p className="text-3xl font-bold">{stats?.last7 ?? "—"}</p>
-          </Bento>
-          <Bento
-            title="Pendientes"
-            icon={Clock}
-            className="col-span-12 sm:col-span-3"
-          >
-            <p className="text-3xl font-bold">{stats?.pending ?? "—"}</p>
-          </Bento>
-          <Bento
-            title="Aprobadas"
-            icon={CheckCircle2}
-            className="col-span-12 sm:col-span-3"
-          >
-            <p className="text-3xl font-bold">{stats?.approved ?? "—"}</p>
-          </Bento>
-          <Bento
-            title="Cerradas"
-            icon={XCircle}
-            className="col-span-12 sm:col-span-3"
-          >
-            <p className="text-3xl font-bold">{stats?.closed ?? "—"}</p>
-          </Bento>
+          {kpiCards.map(({ id, title, icon, value, description }) => (
+            <Bento
+              key={id}
+              title={title}
+              icon={icon}
+              className="col-span-12 sm:col-span-3"
+            >
+              <p className="text-3xl font-bold">{value}</p>
+              <p className="text-xs opacity-70">{description}</p>
+            </Bento>
+          ))}
 
           {/* Gráfica pequeña */}
           <Bento
@@ -175,41 +200,54 @@ export default function Admin() {
             <Sparkline data={dailySeries} />
           </Bento>
 
-          {/* Listados top (opcionales, si tu API los provee) */}
-          <Bento
-            title="Top productos (30d)"
-            icon={Trophy}
-            className="col-span-12 sm:col-span-6"
-          >
-            <ul className="text-sm space-y-2">
-              {(stats?.top_products || []).map((p) => (
-                <li key={p.label} className="flex justify-between">
-                  <span className="opacity-90">{p.label}</span>
-                  <span className="opacity-70">{p.count}</span>
-                </li>
-              ))}
-              {!stats?.top_products?.length && (
-                <li className="opacity-60">Sin datos</li>
-              )}
-            </ul>
-          </Bento>
-          <Bento
-            title="Top categorías (30d)"
-            icon={FileText}
-            className="col-span-12 sm:col-span-6"
-          >
-            <ul className="text-sm space-y-2">
-              {(stats?.top_categories || []).map((c) => (
-                <li key={c.label} className="flex justify-between">
-                  <span className="opacity-90">{c.label}</span>
-                  <span className="opacity-70">{c.count}</span>
-                </li>
-              ))}
-              {!stats?.top_categories?.length && (
-                <li className="opacity-60">Sin datos</li>
-              )}
-            </ul>
-          </Bento>
+          {stats?.top_products?.length ? (
+            <Bento
+              title="Top productos (30d)"
+              icon={Trophy}
+              className="col-span-12 sm:col-span-6"
+            >
+              <ul className="text-sm space-y-2">
+                {stats.top_products.map((p) => (
+                  <li key={p.label} className="flex justify-between">
+                    <span className="opacity-90">{p.label}</span>
+                    <span className="opacity-70">{p.count ?? 0}</span>
+                  </li>
+                ))}
+              </ul>
+            </Bento>
+          ) : (
+            <Bento
+              title="Top productos (30d)"
+              icon={Trophy}
+              className="col-span-12 sm:col-span-6"
+            >
+              <p className="text-sm opacity-60">Reúne más cotizaciones para ver este ranking.</p>
+            </Bento>
+          )}
+          {stats?.top_categories?.length ? (
+            <Bento
+              title="Top categorías (30d)"
+              icon={FileText}
+              className="col-span-12 sm:col-span-6"
+            >
+              <ul className="text-sm space-y-2">
+                {stats.top_categories.map((c) => (
+                  <li key={c.label} className="flex justify-between">
+                    <span className="opacity-90">{c.label}</span>
+                    <span className="opacity-70">{c.count ?? 0}</span>
+                  </li>
+                ))}
+              </ul>
+            </Bento>
+          ) : (
+            <Bento
+              title="Top categorías (30d)"
+              icon={FileText}
+              className="col-span-12 sm:col-span-6"
+            >
+              <p className="text-sm opacity-60">Aún no hay suficientes datos para mostrar categorías destacadas.</p>
+            </Bento>
+          )}
 
           {/* Otras KPIs (opcionales) */}
           <Bento
@@ -237,6 +275,7 @@ export default function Admin() {
               {stats?.avg_items_per_quote?.toFixed?.(1) ?? "—"}
             </p>
           </Bento>
+
         </div>
 
         {/* Columna derecha: Notificaciones (Animated List) */}
