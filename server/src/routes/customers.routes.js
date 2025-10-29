@@ -3,7 +3,7 @@ import { db } from '../db.js';
 
 const router = express.Router();
 
-router.get('/', (req, res) => {
+router.get('/', async (req, res) => {
   try {
     const { search, status, page = 1, limit = 20 } = req.query;
     const offset = (page - 1) * limit;
@@ -25,7 +25,7 @@ router.get('/', (req, res) => {
     query += ' ORDER BY updated_at DESC LIMIT ? OFFSET ?';
     params.push(Number(limit), Number(offset));
 
-    const customers = db.prepare(query).all(...params);
+    const customers = await db.prepare(query).all(...params);
 
     const countQuery = 'SELECT COUNT(*) as total FROM customers WHERE 1=1' +
       (search ? ' AND (name LIKE ? OR email LIKE ? OR company LIKE ?)' : '') +
@@ -37,7 +37,8 @@ router.get('/', (req, res) => {
     }
     if (status) countParams.push(status);
 
-    const { total } = db.prepare(countQuery).get(...countParams);
+    const result = await db.prepare(countQuery).get(...countParams);
+    const total = result?.total || 0;
 
     res.json({ customers, total, page: Number(page), limit: Number(limit) });
   } catch (error) {
@@ -46,18 +47,18 @@ router.get('/', (req, res) => {
   }
 });
 
-router.get('/:id', (req, res) => {
+router.get('/:id', async (req, res) => {
   try {
-    const customer = db.prepare('SELECT * FROM customers WHERE id = ?').get(req.params.id);
+    const customer = await db.prepare('SELECT * FROM customers WHERE id = ?').get(req.params.id);
     if (!customer) {
       return res.status(404).json({ error: 'Cliente no encontrado' });
     }
 
-    const interactions = db.prepare(
+    const interactions = await db.prepare(
       'SELECT * FROM customer_interactions WHERE customer_id = ? ORDER BY created_at DESC'
     ).all(req.params.id);
 
-    const quotes = db.prepare(
+    const quotes = await db.prepare(
       'SELECT * FROM quotes WHERE customer_email = ? ORDER BY created_at DESC'
     ).all(customer.email);
 
@@ -68,7 +69,7 @@ router.get('/:id', (req, res) => {
   }
 });
 
-router.post('/', (req, res) => {
+router.post('/', async (req, res) => {
   try {
     const { name, email, phone, company, address, city, country, notes, tags, status = 'active' } = req.body;
 
@@ -76,17 +77,17 @@ router.post('/', (req, res) => {
       return res.status(400).json({ error: 'Nombre y email son requeridos' });
     }
 
-    const existing = db.prepare('SELECT id FROM customers WHERE email = ?').get(email);
+    const existing = await db.prepare('SELECT id FROM customers WHERE email = ?').get(email);
     if (existing) {
       return res.status(400).json({ error: 'Ya existe un cliente con ese email' });
     }
 
-    const result = db.prepare(`
+    const customer = await db.prepare(`
       INSERT INTO customers (name, email, phone, company, address, city, country, notes, tags, status)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(name, email, phone, company, address, city, country, notes, tags, status);
+      RETURNING *
+    `).get(name, email, phone, company, address, city, country, notes, tags, status);
 
-    const customer = db.prepare('SELECT * FROM customers WHERE id = ?').get(result.lastInsertRowid);
     res.status(201).json(customer);
   } catch (error) {
     console.error('Error creating customer:', error);
@@ -94,23 +95,23 @@ router.post('/', (req, res) => {
   }
 });
 
-router.put('/:id', (req, res) => {
+router.put('/:id', async (req, res) => {
   try {
     const { name, email, phone, company, address, city, country, notes, tags, status } = req.body;
 
-    const existing = db.prepare('SELECT id FROM customers WHERE id = ?').get(req.params.id);
+    const existing = await db.prepare('SELECT id FROM customers WHERE id = ?').get(req.params.id);
     if (!existing) {
       return res.status(404).json({ error: 'Cliente no encontrado' });
     }
 
-    db.prepare(`
-      UPDATE customers 
-      SET name = ?, email = ?, phone = ?, company = ?, address = ?, city = ?, country = ?, 
+    await db.prepare(`
+      UPDATE customers
+      SET name = ?, email = ?, phone = ?, company = ?, address = ?, city = ?, country = ?,
           notes = ?, tags = ?, status = ?, updated_at = CURRENT_TIMESTAMP
       WHERE id = ?
     `).run(name, email, phone, company, address, city, country, notes, tags, status, req.params.id);
 
-    const customer = db.prepare('SELECT * FROM customers WHERE id = ?').get(req.params.id);
+    const customer = await db.prepare('SELECT * FROM customers WHERE id = ?').get(req.params.id);
     res.json(customer);
   } catch (error) {
     console.error('Error updating customer:', error);
@@ -118,14 +119,14 @@ router.put('/:id', (req, res) => {
   }
 });
 
-router.delete('/:id', (req, res) => {
+router.delete('/:id', async (req, res) => {
   try {
-    const existing = db.prepare('SELECT id FROM customers WHERE id = ?').get(req.params.id);
+    const existing = await db.prepare('SELECT id FROM customers WHERE id = ?').get(req.params.id);
     if (!existing) {
       return res.status(404).json({ error: 'Cliente no encontrado' });
     }
 
-    db.prepare('DELETE FROM customers WHERE id = ?').run(req.params.id);
+    await db.prepare('DELETE FROM customers WHERE id = ?').run(req.params.id);
     res.json({ success: true });
   } catch (error) {
     console.error('Error deleting customer:', error);
@@ -133,7 +134,7 @@ router.delete('/:id', (req, res) => {
   }
 });
 
-router.post('/:id/interactions', (req, res) => {
+router.post('/:id/interactions', async (req, res) => {
   try {
     const { type, subject, notes, created_by } = req.body;
 
@@ -141,19 +142,19 @@ router.post('/:id/interactions', (req, res) => {
       return res.status(400).json({ error: 'Tipo de interacción es requerido' });
     }
 
-    const customer = db.prepare('SELECT id FROM customers WHERE id = ?').get(req.params.id);
+    const customer = await db.prepare('SELECT id FROM customers WHERE id = ?').get(req.params.id);
     if (!customer) {
       return res.status(404).json({ error: 'Cliente no encontrado' });
     }
 
-    const result = db.prepare(`
+    const interaction = await db.prepare(`
       INSERT INTO customer_interactions (customer_id, type, subject, notes, created_by)
       VALUES (?, ?, ?, ?, ?)
-    `).run(req.params.id, type, subject, notes, created_by);
+      RETURNING *
+    `).get(req.params.id, type, subject, notes, created_by);
 
-    db.prepare('UPDATE customers SET updated_at = CURRENT_TIMESTAMP WHERE id = ?').run(req.params.id);
+    await db.prepare('UPDATE customers SET updated_at = CURRENT_TIMESTAMP WHERE id = ?').run(req.params.id);
 
-    const interaction = db.prepare('SELECT * FROM customer_interactions WHERE id = ?').get(result.lastInsertRowid);
     res.status(201).json(interaction);
   } catch (error) {
     console.error('Error creating interaction:', error);

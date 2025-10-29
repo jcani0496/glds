@@ -2,27 +2,6 @@
 import express from 'express';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
-import dotenv from 'dotenv';
-
-// Cargar variables de entorno
-dotenv.config({ path: path.join(process.cwd(), 'server', '.env') });
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-// Importar rutas
-import authRoutes from '../server/src/routes/auth.routes.js';
-import productsRoutes from '../server/src/routes/products.routes.js';
-import categoriesRoutes from '../server/src/routes/categories.routes.js';
-import uploadsRoutes from '../server/src/routes/uploads.routes.js';
-import quotesRoutes from '../server/src/routes/quotes.routes.js';
-import statsRoutes from '../server/src/routes/stats.routes.js';
-import colorsRoutes from '../server/src/routes/colors.routes.js';
-import contactRoutes from '../server/src/routes/contact.routes.js';
-import customersRoutes from '../server/src/routes/customers.routes.js';
-import { requireAuth } from '../server/src/auth.js';
 
 const app = express();
 
@@ -38,59 +17,146 @@ app.use(
 app.use(express.json({ limit: '10mb' }));
 app.use(cookieParser());
 
-// Rutas públicas
-app.use('/api/auth', authRoutes);
-app.use('/api/contact', contactRoutes);
-
-// Rutas protegidas
-app.use('/api/stats', requireAuth, statsRoutes);
-app.use('/api/customers', requireAuth, customersRoutes);
-
-// Otras rutas
-app.use('/api/products', productsRoutes);
-app.use('/api/categories', categoriesRoutes);
-app.use('/api/uploads', uploadsRoutes);
-app.use('/api/colors', colorsRoutes);
-
-// Quotes (necesita io, pero en serverless no tenemos WebSockets)
-// Crear un mock de io para que funcione
-const mockIo = {
-  emit: () => {},
-  on: () => {},
-  sockets: { emit: () => {} }
-};
-app.use('/api/quotes', quotesRoutes(mockIo));
-
 // Health check
 app.get('/api', (req, res) => {
-  res.json({ status: 'ok', message: 'GLDS API is running' });
+  res.json({
+    status: 'ok',
+    message: 'GLDS API is running on Vercel Serverless',
+    timestamp: new Date().toISOString(),
+    env: {
+      nodeVersion: process.version,
+      platform: process.platform,
+      hasClientUrl: !!process.env.CLIENT_URL,
+      hasJwtSecret: !!process.env.JWT_SECRET,
+      hasAdminEmail: !!process.env.ADMIN_EMAIL,
+      clientUrl: process.env.CLIENT_URL,
+    }
+  });
+});
+
+// Diagnóstico
+app.get('/api/debug', (req, res) => {
+  res.json({
+    env: process.env,
+    cwd: process.cwd(),
+    nodeVersion: process.version,
+  });
+});
+
+// Lazy load routes to avoid import errors
+let routesCache = {};
+
+async function loadRoute(resource) {
+  if (routesCache[resource]) {
+    return routesCache[resource];
+  }
+
+  const routeMap = {
+    'auth': '../server/src/routes/auth.routes.js',
+    'products': '../server/src/routes/products.routes.js',
+    'categories': '../server/src/routes/categories.routes.js',
+    'uploads': '../server/src/routes/uploads.routes.js',
+    'quotes': '../server/src/routes/quotes.routes.js',
+    'stats': '../server/src/routes/stats.routes.js',
+    'colors': '../server/src/routes/colors.routes.js',
+    'contact': '../server/src/routes/contact.routes.js',
+    'customers': '../server/src/routes/customers.routes.js',
+  };
+
+  if (!routeMap[resource]) {
+    return null;
+  }
+
+  try {
+    const routeModule = await import(routeMap[resource]);
+    const router = routeModule.default;
+
+    // Para quotes que necesita io
+    if (resource === 'quotes' && typeof router === 'function') {
+      const mockIo = {
+        emit: () => {},
+        on: () => {},
+        sockets: { emit: () => {} }
+      };
+      routesCache[resource] = router(mockIo);
+    } else {
+      routesCache[resource] = router;
+    }
+
+    return routesCache[resource];
+  } catch (error) {
+    console.error(`Error loading route ${resource}:`, error);
+    throw error;
+  }
+}
+
+// Dynamic route handler
+app.use('/api/:resource/*', async (req, res, next) => {
+  try {
+    const { resource } = req.params;
+    const router = await loadRoute(resource);
+
+    if (!router) {
+      return next();
+    }
+
+    // Crear un nuevo request con la ruta ajustada
+    const originalUrl = req.originalUrl;
+    req.url = req.url.replace(`/${resource}`, '');
+    req.originalUrl = originalUrl;
+
+    router(req, res, next);
+  } catch (error) {
+    console.error('Route handler error:', error);
+    res.status(500).json({
+      error: 'Internal server error',
+      message: error.message,
+      resource: req.params.resource,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    });
+  }
+});
+
+// También manejar rutas sin subrutas (ej: /api/products)
+app.use('/api/:resource', async (req, res, next) => {
+  try {
+    const { resource } = req.params;
+    const router = await loadRoute(resource);
+
+    if (!router) {
+      return next();
+    }
+
+    req.url = '/';
+    router(req, res, next);
+  } catch (error) {
+    console.error('Route handler error:', error);
+    res.status(500).json({
+      error: 'Internal server error',
+      message: error.message,
+      resource: req.params.resource,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    });
+  }
+});
+
+// 404 handler
+app.use((req, res) => {
+  res.status(404).json({
+    error: 'Not found',
+    path: req.path,
+    method: req.method
+  });
 });
 
 // Error handler
 app.use((err, req, res, next) => {
-  console.error(err);
-  res.status(500).json({ error: 'Internal server error' });
+  console.error('Global error handler:', err);
+  res.status(500).json({
+    error: 'Internal server error',
+    message: err.message,
+    stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
+  });
 });
 
-// Vercel serverless handler wrapper for the Express app
-export default async function handler(req, res) {
-  // Ensure Vercel waits until the response is finished
-  await new Promise((resolve, reject) => {
-    let finished = false;
-    const done = (err) => {
-      if (finished) return;
-      finished = true;
-      if (err) return reject(err);
-      resolve();
-    };
-
-    try {
-      app(req, res, (err) => done(err));
-    } catch (err) {
-      return done(err);
-    }
-
-    res.on('finish', () => done());
-    res.on('close', () => done());
-  });
-}
+export default app;

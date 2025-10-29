@@ -1,50 +1,72 @@
-import { sql } from '@vercel/postgres';
+let sql = null;
+
+try {
+  if (process.env.POSTGRES_URL) {
+    // Intentar cargar @vercel/postgres de forma dinámica para ser compatible
+    // con entornos donde no esté instalado (en cuyo caso se usará `pg`).
+    try {
+      // Intentar require (funciona en muchas configuraciones de Node/CJS)
+      if (typeof require !== 'undefined') {
+        // eslint-disable-next-line global-require
+        const vercel = require('@vercel/postgres');
+        sql = vercel?.sql || vercel?.default?.sql || null;
+      } else {
+        // Fallback a import dinámico en ESM (no bloqueante)
+        import('@vercel/postgres')
+          .then(mod => {
+            sql = mod?.sql || mod?.default?.sql || null;
+          })
+          .catch(() => {
+            // Ignorar, se usará pg Pool si está disponible
+          });
+      }
+    } catch (err) {
+      // Si falla la carga, dejamos sql en null para usar Pool
+      sql = null;
+    }
+  }
+} catch (err) {
+  sql = null;
+}
 import pg from 'pg';
 
 const { Pool } = pg;
 
+// Configuración de la conexión
 let pool = null;
 let dbError = null;
-let isVercelPostgres = false;
 
-// Detectar y configurar conexión
+// Intentar conectar a Postgres
 try {
+  // En Vercel, usar las variables de entorno automáticas
   if (process.env.POSTGRES_URL) {
-    isVercelPostgres = true;
     console.log('✅ Using Vercel Postgres');
+    // @vercel/postgres usa las variables de entorno automáticamente
   } else if (process.env.DATABASE_URL) {
+    // Fallback para desarrollo local o Railway/Render
     pool = new Pool({
       connectionString: process.env.DATABASE_URL,
       ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
     });
     console.log('✅ Using custom DATABASE_URL');
   } else {
-    console.warn('⚠️  No database configuration found');
+    throw new Error('No database configuration found. Please set POSTGRES_URL or DATABASE_URL');
   }
 } catch (error) {
   dbError = error;
   console.error('❌ Database connection error:', error.message);
 }
 
-// Convertir query de SQLite (?) a Postgres ($1, $2, ...)
-const convertQuery = (sqliteQuery, params = []) => {
-  let index = 0;
-  const pgQuery = sqliteQuery.replace(/\?/g, () => `$${++index}`);
-  return { text: pgQuery, values: params };
-};
-
-// Ejecutar query
-const executeQuery = async (text, params = []) => {
+// Wrapper para queries que funciona con ambos métodos
+export const query = async (text, params = []) => {
   try {
-    const { text: pgText, values } = convertQuery(text, params);
-
-    if (isVercelPostgres) {
+    if (process.env.POSTGRES_URL) {
       // Usar @vercel/postgres
-      const result = await sql.query(pgText, values);
+      const result = await sql.query(text, params);
       return result;
     } else if (pool) {
       // Usar pg Pool
-      const result = await pool.query(pgText, values);
+      const result = await pool.query(text, params);
       return result;
     } else {
       throw new Error('Database not available');
@@ -55,55 +77,16 @@ const executeQuery = async (text, params = []) => {
   }
 };
 
-// Adaptador para mantener compatibilidad con better-sqlite3
-class PreparedStatement {
-  constructor(query) {
-    this.query = query;
-  }
+// Helper para obtener un solo registro
+export const queryOne = async (text, params = []) => {
+  const result = await query(text, params);
+  return result.rows[0] || null;
+};
 
-  async run(...params) {
-    const result = await executeQuery(this.query, params);
-    return {
-      changes: result.rowCount || 0,
-      lastInsertRowid: result.rows[0]?.id || null,
-    };
-  }
-
-  async get(...params) {
-    const result = await executeQuery(this.query, params);
-    return result.rows[0] || null;
-  }
-
-  async all(...params) {
-    const result = await executeQuery(this.query, params);
-    return result.rows;
-  }
-}
-
-// Objeto db compatible con better-sqlite3
-export const db = {
-  prepare(query) {
-    return new PreparedStatement(query);
-  },
-
-  async exec(query) {
-    try {
-      if (isVercelPostgres) {
-        await sql.query(query);
-      } else if (pool) {
-        await pool.query(query);
-      } else {
-        throw new Error('Database not available');
-      }
-    } catch (error) {
-      console.error('Exec error:', error);
-      throw error;
-    }
-  },
-
-  pragma() {
-    // No-op para compatibilidad
-  },
+// Helper para obtener todos los registros
+export const queryAll = async (text, params = []) => {
+  const result = await query(text, params);
+  return result.rows;
 };
 
 // Inicializar esquema de base de datos
@@ -113,16 +96,11 @@ export const initDatabase = async () => {
     return false;
   }
 
-  if (!isVercelPostgres && !pool) {
-    console.warn('⚠️  Database not configured, skipping initialization');
-    return false;
-  }
-
   try {
     console.log('🔄 Initializing database schema...');
 
     // Crear tablas
-    await db.exec(`
+    await query(`
       CREATE TABLE IF NOT EXISTS admins (
         id SERIAL PRIMARY KEY,
         email VARCHAR(255) UNIQUE NOT NULL,
@@ -248,7 +226,7 @@ export const initDatabase = async () => {
     `);
 
     // Crear índices
-    await db.exec(`
+    await query(`
       CREATE INDEX IF NOT EXISTS idx_products_name ON products(name);
       CREATE INDEX IF NOT EXISTS idx_products_sku ON products(sku);
       CREATE INDEX IF NOT EXISTS idx_products_cat ON products(category_id);
@@ -265,26 +243,25 @@ export const initDatabase = async () => {
       CREATE INDEX IF NOT EXISTS idx_customer_interactions_customer ON customer_interactions(customer_id, created_at);
     `);
 
-    // Crear función y trigger para actualizar contador de cotizaciones
-    await db.exec(`
+    // Crear trigger para actualizar contador de cotizaciones
+    await query(`
       CREATE OR REPLACE FUNCTION update_customer_quote_count()
       RETURNS TRIGGER AS $$
       BEGIN
+        -- Actualizar o insertar cliente
         INSERT INTO customers (name, email, phone, company, total_quotes, last_quote_date, status)
         VALUES (NEW.customer_name, NEW.customer_email, NEW.customer_phone, NEW.customer_company, 1, NEW.created_at, 'lead')
         ON CONFLICT (email) DO UPDATE SET
           total_quotes = (SELECT COUNT(*) FROM quotes WHERE customer_email = NEW.customer_email),
           last_quote_date = NEW.created_at,
           updated_at = CURRENT_TIMESTAMP;
-
+        
         RETURN NEW;
       END;
       $$ LANGUAGE plpgsql;
-    `);
 
-    await db.exec(`
       DROP TRIGGER IF EXISTS trigger_update_customer_quote_count ON quotes;
-
+      
       CREATE TRIGGER trigger_update_customer_quote_count
       AFTER INSERT ON quotes
       FOR EACH ROW
@@ -299,9 +276,11 @@ export const initDatabase = async () => {
   }
 };
 
-// Inicializar automáticamente
-initDatabase().catch(err => {
-  console.error('Failed to initialize database:', err);
-});
+// Exportar para compatibilidad con código existente
+export const db = {
+  query,
+  queryOne,
+  queryAll,
+};
 
 export { dbError };
