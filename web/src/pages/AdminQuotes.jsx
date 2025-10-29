@@ -41,14 +41,14 @@ function getTimeAgo(dateString) {
 
 function Toast({ message, onClose }) {
   useEffect(() => {
-    const timer = setTimeout(onClose, 3000);
+    const timer = setTimeout(onClose, 5000);
     return () => clearTimeout(timer);
   }, [onClose]);
 
   return (
-    <div className="fixed bottom-6 right-6 bg-green-500/90 backdrop-blur-sm text-white px-4 py-3 rounded-lg shadow-lg flex items-center gap-2 animate-slide-up z-50">
-      <CheckCircle2 className="w-5 h-5" />
-      <span className="font-medium">{message}</span>
+    <div className="fixed bottom-6 right-6 bg-green-500 text-white px-6 py-4 rounded-lg shadow-2xl flex items-center gap-3 animate-slide-up z-[9999] border-2 border-green-400">
+      <CheckCircle2 className="w-6 h-6 flex-shrink-0" />
+      <span className="font-semibold text-base">{message}</span>
     </div>
   );
 }
