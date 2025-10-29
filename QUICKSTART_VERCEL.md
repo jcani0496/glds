@@ -14,11 +14,8 @@ git push -u origin main
 ### 2️⃣ Conectar con Vercel
 1. Ve a https://vercel.com/new
 2. Importa tu repositorio de GitHub
-3. Configura:
-   - **Framework Preset**: Other
-   - **Root Directory**: `./`
-   - **Build Command**: `npm run vercel-build`
-   - **Output Directory**: `web/dist`
+3. Vercel detectará automáticamente la configuración de `vercel.json`
+4. Haz clic en **"Deploy"** (no necesitas cambiar nada)
 
 ### 3️⃣ Agregar Variables de Entorno
 En Vercel Dashboard → Settings → Environment Variables:
