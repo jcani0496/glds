@@ -6,9 +6,21 @@ const CartCtx = createContext();
 const initial = (() => {
   try {
     const raw = localStorage.getItem("glds_cart_v2");
-    const parsed = raw ? JSON.parse(raw) : { items: [], meta: {} };
-    return { items: parsed.items || [], meta: parsed.meta || {} };
-  } catch {
+    if (!raw) return { items: [], meta: {} };
+
+    const parsed = JSON.parse(raw);
+
+    // Asegurar que items sea un array
+    if (!parsed || typeof parsed !== 'object') {
+      return { items: [], meta: {} };
+    }
+
+    return {
+      items: Array.isArray(parsed.items) ? parsed.items : [],
+      meta: parsed.meta && typeof parsed.meta === 'object' ? parsed.meta : {}
+    };
+  } catch (error) {
+    console.error('Error loading cart from localStorage:', error);
     return { items: [], meta: {} };
   }
 })();
