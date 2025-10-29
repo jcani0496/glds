@@ -1,4 +1,4 @@
-// server/src/index.js
+ // server/src/index.js
 import "dotenv/config";
 import express from "express";
 import cors from "cors";
@@ -17,6 +17,7 @@ import uploadsRoutes from "./routes/uploads.routes.js";
 import quotesRoutes from "./routes/quotes.routes.js";
 import statsRoutes from "./routes/stats.routes.js";
 import colorsRoutes from './routes/colors.routes.js';
+import contactRoutes from './routes/contact.routes.js';
 
 const app = express();
 
@@ -42,6 +43,7 @@ app.use(
 
 // Rutas (públicas)
 app.use("/auth", authRoutes);
+app.use("/contact", contactRoutes);
 
 // Rutas (protegidas)
 app.use("/stats", requireAuth, statsRoutes);

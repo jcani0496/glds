@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams, Link } from "react-router-dom";
-import { Search, Filter, Star, ChevronLeft, ChevronRight } from "lucide-react";
+import { Search, Filter, Star, ChevronLeft, ChevronRight, X, Package, Clock, Sparkles, Leaf } from "lucide-react";
 import api from "@/lib/api";
 import ProductCard from "@/components/ProductCard";
 import CatalogCartSummary from "@/components/catalog/CatalogCartSummary.jsx";
@@ -14,6 +14,45 @@ const SORT_OPTIONS = [
   { value: "name_desc", label: "Nombre (Z–A)" },
   { value: "featured", label: "Destacados" },
   { value: "category", label: "Categoría" },
+];
+
+const MATERIAL_OPTIONS = [
+  { value: "", label: "Todos los materiales" },
+  { value: "tela", label: "Tela" },
+  { value: "plastico", label: "Plástico" },
+  { value: "metal", label: "Metal" },
+  { value: "vidrio", label: "Vidrio" },
+  { value: "papel", label: "Papel" },
+  { value: "madera", label: "Madera" },
+  { value: "silicona", label: "Silicona" },
+  { value: "cuero", label: "Cuero" },
+];
+
+const USE_CASE_OPTIONS = [
+  { value: "", label: "Todos los usos" },
+  { value: "eventos", label: "Eventos" },
+  { value: "oficina", label: "Oficina" },
+  { value: "deportivo", label: "Deportivo" },
+  { value: "tecnologia", label: "Tecnología" },
+  { value: "hogar", label: "Hogar" },
+  { value: "viaje", label: "Viaje" },
+  { value: "promocional", label: "Promocional" },
+];
+
+const DELIVERY_TIME_OPTIONS = [
+  { value: "", label: "Cualquier tiempo" },
+  { value: "1-3", label: "1-3 días" },
+  { value: "3-7", label: "3-7 días" },
+  { value: "7-15", label: "7-15 días" },
+  { value: "15+", label: "Más de 15 días" },
+];
+
+const STOCK_STATUS_OPTIONS = [
+  { value: "", label: "Todos" },
+  { value: "available", label: "Disponible" },
+  { value: "low_stock", label: "Poco stock" },
+  { value: "on_order", label: "Bajo pedido" },
+  { value: "coming_soon", label: "Próximamente" },
 ];
 
 function readSavedFilters() {
@@ -60,14 +99,28 @@ export default function Catalog() {
     const q = searchParams.get("q") || "";
     const categoryId = searchParams.get("category_id") || "";
     const featured = searchParams.get("featured") === "true";
+    const material = searchParams.get("material") || "";
+    const use_case = searchParams.get("use_case") || "";
+    const delivery_time = searchParams.get("delivery_time") || "";
+    const stock_status = searchParams.get("stock_status") || "";
+    const is_new = searchParams.get("is_new") === "true";
+    const is_popular = searchParams.get("is_popular") === "true";
+    const is_eco_friendly = searchParams.get("is_eco_friendly") === "true";
     const sort = searchParams.get("sort") || "new";
     const page = Math.max(1, Number(searchParams.get("page")) || 1);
     const pageSize = Math.max(6, Number(searchParams.get("pageSize")) || PAGE_SIZE_DEFAULT);
-    const next = { q, categoryId, featured, sort, page, pageSize };
+    const next = { q, categoryId, featured, material, use_case, delivery_time, stock_status, is_new, is_popular, is_eco_friendly, sort, page, pageSize };
     persistFilters({
       q,
       category_id: categoryId,
       featured,
+      material,
+      use_case,
+      delivery_time,
+      stock_status,
+      is_new,
+      is_popular,
+      is_eco_friendly,
       sort,
       page,
       pageSize,
@@ -95,6 +148,13 @@ export default function Catalog() {
           q: filters.q || undefined,
           category_id: filters.categoryId || undefined,
           featured: filters.featured ? 1 : undefined,
+          material: filters.material || undefined,
+          use_case: filters.use_case || undefined,
+          delivery_time: filters.delivery_time || undefined,
+          stock_status: filters.stock_status || undefined,
+          is_new: filters.is_new ? 1 : undefined,
+          is_popular: filters.is_popular ? 1 : undefined,
+          is_eco_friendly: filters.is_eco_friendly ? 1 : undefined,
           sort: filters.sort,
           page: filters.page,
           pageSize: filters.pageSize,
@@ -230,6 +290,138 @@ export default function Catalog() {
                 </option>
               ))}
             </select>
+          </div>
+        </div>
+
+        <div className="rounded-2xl border border-white/10 bg-white/[.05] p-4">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-sm font-semibold flex items-center gap-2">
+              <Filter className="w-4 h-4" />
+              Filtros Avanzados
+            </h3>
+            {(filters.material || filters.use_case || filters.delivery_time || filters.stock_status || filters.is_new || filters.is_popular || filters.is_eco_friendly) && (
+              <button
+                onClick={() => {
+                  updateSearchParams({
+                    material: null,
+                    use_case: null,
+                    delivery_time: null,
+                    stock_status: null,
+                    is_new: null,
+                    is_popular: null,
+                    is_eco_friendly: null,
+                    page: 1,
+                  });
+                }}
+                className="text-xs text-glds-primary hover:underline flex items-center gap-1"
+              >
+                <X className="w-3 h-3" />
+                Limpiar filtros
+              </button>
+            )}
+          </div>
+
+          <div className="grid gap-3 md:grid-cols-4">
+            <div>
+              <label className="text-xs opacity-80 mb-1 block">Material</label>
+              <select
+                value={filters.material}
+                onChange={(event) => setFilter("material", event.target.value)}
+                className="w-full px-3 py-2 text-sm rounded-xl bg-white/[.06] border border-white/10 outline-none focus:ring-2 focus:ring-glds-primary/60"
+              >
+                {MATERIAL_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="text-xs opacity-80 mb-1 block">Uso/Ocasión</label>
+              <select
+                value={filters.use_case}
+                onChange={(event) => setFilter("use_case", event.target.value)}
+                className="w-full px-3 py-2 text-sm rounded-xl bg-white/[.06] border border-white/10 outline-none focus:ring-2 focus:ring-glds-primary/60"
+              >
+                {USE_CASE_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="text-xs opacity-80 mb-1 block">Tiempo de entrega</label>
+              <select
+                value={filters.delivery_time}
+                onChange={(event) => setFilter("delivery_time", event.target.value)}
+                className="w-full px-3 py-2 text-sm rounded-xl bg-white/[.06] border border-white/10 outline-none focus:ring-2 focus:ring-glds-primary/60"
+              >
+                {DELIVERY_TIME_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="text-xs opacity-80 mb-1 block">Disponibilidad</label>
+              <select
+                value={filters.stock_status}
+                onChange={(event) => setFilter("stock_status", event.target.value)}
+                className="w-full px-3 py-2 text-sm rounded-xl bg-white/[.06] border border-white/10 outline-none focus:ring-2 focus:ring-glds-primary/60"
+              >
+                {STOCK_STATUS_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap gap-2 mt-3">
+            <button
+              onClick={() => setFilter("is_new", filters.is_new ? null : "true")}
+              className={[
+                "inline-flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-full transition",
+                filters.is_new
+                  ? "bg-glds-primary text-zinc-900 shadow-glow"
+                  : "bg-white/[.06] border border-white/10 hover:bg-white/[.08]",
+              ].join(" ")}
+            >
+              <Sparkles className="w-3 h-3" />
+              Nuevo
+            </button>
+
+            <button
+              onClick={() => setFilter("is_popular", filters.is_popular ? null : "true")}
+              className={[
+                "inline-flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-full transition",
+                filters.is_popular
+                  ? "bg-glds-primary text-zinc-900 shadow-glow"
+                  : "bg-white/[.06] border border-white/10 hover:bg-white/[.08]",
+              ].join(" ")}
+            >
+              <Star className="w-3 h-3" />
+              Popular
+            </button>
+
+            <button
+              onClick={() => setFilter("is_eco_friendly", filters.is_eco_friendly ? null : "true")}
+              className={[
+                "inline-flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-full transition",
+                filters.is_eco_friendly
+                  ? "bg-glds-primary text-zinc-900 shadow-glow"
+                  : "bg-white/[.06] border border-white/10 hover:bg-white/[.08]",
+              ].join(" ")}
+            >
+              <Leaf className="w-3 h-3" />
+              Eco-Friendly
+            </button>
           </div>
         </div>
       </header>

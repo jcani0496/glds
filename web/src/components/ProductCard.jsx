@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Download, Eye } from "lucide-react";
+import { Download, Eye, Sparkles, Star, Leaf, Clock, Package } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "./ui/dialog";
 import { useCart } from "../lib/store.jsx";
 
@@ -14,7 +14,7 @@ export default function ProductCard(props) {
 
   if (!product || typeof product !== "object") return null;
 
-  const { id, name, sku, image_url, description, colors = [], spec_sheet_url, category_name } = product;
+  const { id, name, sku, image_url, description, colors = [], spec_sheet_url, category_name, is_new, is_popular, is_eco_friendly, delivery_time, stock_status } = product;
 
   function addToCart() {
     if (!id) return;
@@ -49,6 +49,28 @@ export default function ProductCard(props) {
             Sin imagen
           </div>
         )}
+
+        <div className="absolute top-2 left-2 flex flex-wrap gap-1">
+          {is_new && (
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-glds-primary text-zinc-900 text-xs font-semibold">
+              <Sparkles className="w-3 h-3" />
+              Nuevo
+            </span>
+          )}
+          {is_popular && (
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-yellow-500 text-zinc-900 text-xs font-semibold">
+              <Star className="w-3 h-3" />
+              Popular
+            </span>
+          )}
+          {is_eco_friendly && (
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-green-500 text-white text-xs font-semibold">
+              <Leaf className="w-3 h-3" />
+              Eco
+            </span>
+          )}
+        </div>
+
         <div className="absolute inset-x-3 bottom-3 flex justify-between gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
@@ -138,6 +160,31 @@ export default function ProductCard(props) {
         {hasVariants ? (
           <div className="text-xs opacity-60">{colors.length} colores disponibles</div>
         ) : null}
+
+        <div className="flex flex-wrap gap-2 mt-2">
+          {delivery_time && (
+            <span className="inline-flex items-center gap-1 text-xs opacity-70">
+              <Clock className="w-3 h-3" />
+              {delivery_time}
+            </span>
+          )}
+          {stock_status && (
+            <span className={[
+              "inline-flex items-center gap-1 text-xs",
+              stock_status === 'available' ? 'text-green-400' :
+              stock_status === 'low_stock' ? 'text-yellow-400' :
+              stock_status === 'on_order' ? 'text-blue-400' :
+              'text-gray-400'
+            ].join(' ')}>
+              <Package className="w-3 h-3" />
+              {stock_status === 'available' ? 'Disponible' :
+               stock_status === 'low_stock' ? 'Poco stock' :
+               stock_status === 'on_order' ? 'Bajo pedido' :
+               'Próximamente'}
+            </span>
+          )}
+        </div>
+
         {description ? (
           <p className="text-xs opacity-70 line-clamp-3">{description}</p>
         ) : (

@@ -2,7 +2,7 @@ import { db } from './db.js';
 import slugify from './util.slugify.js';
 
 /* ============ Helpers internos ============ */
-function buildFilters({ q, category_id, featured } = {}) {
+function buildFilters({ q, category_id, featured, material, use_case, delivery_time, stock_status, is_new, is_popular, is_eco_friendly } = {}) {
   const conds = [];
   const vals = [];
   if (q) {
@@ -16,6 +16,34 @@ function buildFilters({ q, category_id, featured } = {}) {
   if (featured != null) {
     conds.push('p.featured = ?');
     vals.push(featured ? 1 : 0);
+  }
+  if (material) {
+    conds.push('p.material = ?');
+    vals.push(material);
+  }
+  if (use_case) {
+    conds.push('p.use_case = ?');
+    vals.push(use_case);
+  }
+  if (delivery_time) {
+    conds.push('p.delivery_time = ?');
+    vals.push(delivery_time);
+  }
+  if (stock_status) {
+    conds.push('p.stock_status = ?');
+    vals.push(stock_status);
+  }
+  if (is_new != null) {
+    conds.push('p.is_new = ?');
+    vals.push(is_new ? 1 : 0);
+  }
+  if (is_popular != null) {
+    conds.push('p.is_popular = ?');
+    vals.push(is_popular ? 1 : 0);
+  }
+  if (is_eco_friendly != null) {
+    conds.push('p.is_eco_friendly = ?');
+    vals.push(is_eco_friendly ? 1 : 0);
   }
   const where = conds.length ? `WHERE ${conds.join(' AND ')}` : '';
   return { where, vals };
@@ -84,8 +112,8 @@ export const colors = {
 /* ---------------- Products ---------------- */
 export const products = {
   /* Listado simple (compatibilidad con vistas existentes: Admin, etc.) */
-  list: ({ q, category_id, featured, sort = 'new' } = {}) => {
-    const { where, vals } = buildFilters({ q, category_id, featured });
+  list: ({ q, category_id, featured, material, use_case, delivery_time, stock_status, is_new, is_popular, is_eco_friendly, sort = 'new' } = {}) => {
+    const { where, vals } = buildFilters({ q, category_id, featured, material, use_case, delivery_time, stock_status, is_new, is_popular, is_eco_friendly });
     const orderBy = buildOrder(sort);
     let sql = `
       SELECT p.*, c.name AS category_name
@@ -98,8 +126,8 @@ export const products = {
   },
 
   /* Conteo con los mismos filtros */
-  count: ({ q, category_id, featured } = {}) => {
-    const { where, vals } = buildFilters({ q, category_id, featured });
+  count: ({ q, category_id, featured, material, use_case, delivery_time, stock_status, is_new, is_popular, is_eco_friendly } = {}) => {
+    const { where, vals } = buildFilters({ q, category_id, featured, material, use_case, delivery_time, stock_status, is_new, is_popular, is_eco_friendly });
     const sql = `
       SELECT COUNT(*) AS total
       FROM products p
@@ -111,17 +139,17 @@ export const products = {
   },
 
   /* Paginado */
-  listPaged: ({ q, category_id, featured, sort = 'new', page = 1, pageSize = 12 } = {}) => {
+  listPaged: ({ q, category_id, featured, material, use_case, delivery_time, stock_status, is_new, is_popular, is_eco_friendly, sort = 'new', page = 1, pageSize = 12 } = {}) => {
     const p = Math.max(1, Number(page) || 1);
     const ps = Math.min(48, Math.max(6, Number(pageSize) || 12));
     const offset = (p - 1) * ps;
 
-    const total = products.count({ q, category_id, featured });
+    const total = products.count({ q, category_id, featured, material, use_case, delivery_time, stock_status, is_new, is_popular, is_eco_friendly });
     if (total === 0) {
       return { items: [], total: 0, page: p, pageSize: ps };
     }
 
-    const { where, vals } = buildFilters({ q, category_id, featured });
+    const { where, vals } = buildFilters({ q, category_id, featured, material, use_case, delivery_time, stock_status, is_new, is_popular, is_eco_friendly });
     const orderBy = buildOrder(sort);
     const sql = `
       SELECT p.*, c.name AS category_name
@@ -137,15 +165,15 @@ export const products = {
 
   get: (id) => db.prepare('SELECT * FROM products WHERE id = ?').get(id),
 
-  create: ({ name, sku, description, image_url, featured, category_id }) =>
+  create: ({ name, sku, description, image_url, featured, category_id, material, use_case, delivery_time, stock_status, is_new, is_popular, is_eco_friendly }) =>
     db
-      .prepare('INSERT INTO products (name, sku, description, image_url, featured, category_id) VALUES (?, ?, ?, ?, ?, ?)')
-      .run(name, sku, description, image_url, featured ? 1 : 0, category_id || null),
+      .prepare('INSERT INTO products (name, sku, description, image_url, featured, category_id, material, use_case, delivery_time, stock_status, is_new, is_popular, is_eco_friendly) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
+      .run(name, sku, description, image_url, featured ? 1 : 0, category_id || null, material || null, use_case || null, delivery_time || null, stock_status || 'available', is_new ? 1 : 0, is_popular ? 1 : 0, is_eco_friendly ? 1 : 0),
 
-  update: (id, { name, sku, description, image_url, featured, category_id }) =>
+  update: (id, { name, sku, description, image_url, featured, category_id, material, use_case, delivery_time, stock_status, is_new, is_popular, is_eco_friendly }) =>
     db
-      .prepare('UPDATE products SET name=?, sku=?, description=?, image_url=?, featured=?, category_id=? WHERE id=?')
-      .run(name, sku, description, image_url, featured ? 1 : 0, category_id || null, id),
+      .prepare('UPDATE products SET name=?, sku=?, description=?, image_url=?, featured=?, category_id=?, material=?, use_case=?, delivery_time=?, stock_status=?, is_new=?, is_popular=?, is_eco_friendly=? WHERE id=?')
+      .run(name, sku, description, image_url, featured ? 1 : 0, category_id || null, material || null, use_case || null, delivery_time || null, stock_status || 'available', is_new ? 1 : 0, is_popular ? 1 : 0, is_eco_friendly ? 1 : 0, id),
 
   remove: (id) => db.prepare('DELETE FROM products WHERE id = ?').run(id),
 

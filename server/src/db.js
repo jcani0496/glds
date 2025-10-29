@@ -35,6 +35,13 @@ CREATE TABLE IF NOT EXISTS products (
   image_url TEXT,
   featured INTEGER DEFAULT 0,
   category_id INTEGER,
+  material TEXT,
+  use_case TEXT,
+  delivery_time TEXT,
+  stock_status TEXT DEFAULT 'available',
+  is_new INTEGER DEFAULT 0,
+  is_popular INTEGER DEFAULT 0,
+  is_eco_friendly INTEGER DEFAULT 0,
   created_at TEXT DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY(category_id) REFERENCES categories(id)
 );

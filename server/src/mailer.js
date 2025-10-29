@@ -25,3 +25,11 @@ export async function sendQuoteEmail({ to, subject, html, attachments = [] }) {
   }
   return transporter.sendMail({ from: MAIL_FROM || 'no-reply@glds.com', to, subject, html, attachments });
 }
+
+export async function sendContactEmail({ to, subject, html }) {
+  if (!transporter) {
+    console.log('Email simulado (no hay configuración SMTP):', { to, subject });
+    return { simulated: true };
+  }
+  return transporter.sendMail({ from: MAIL_FROM || 'no-reply@glds.com', to, subject, html });
+}
