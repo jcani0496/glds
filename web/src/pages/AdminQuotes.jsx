@@ -239,6 +239,7 @@ export default function AdminQuotes() {
   const [deletingAll, setDeletingAll] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [activeId, setActiveId] = useState(null);
+  const [originalStatus, setOriginalStatus] = useState(null);
   const [toast, setToast] = useState(null);
 
   const sensors = useSensors(
@@ -306,7 +307,9 @@ export default function AdminQuotes() {
   }
 
   function handleDragStart(event) {
+    const quote = items.find((q) => q.id === event.active.id);
     setActiveId(event.active.id);
+    setOriginalStatus(quote?.status || "pending");
   }
 
   function handleDragOver(event) {
@@ -336,28 +339,46 @@ export default function AdminQuotes() {
 
   function handleDragEnd(event) {
     const { active, over } = event;
+    const draggedQuote = items.find((q) => q.id === active.id);
+
     setActiveId(null);
 
-    if (!over) return;
+    if (!over || !draggedQuote) {
+      setOriginalStatus(null);
+      return;
+    }
 
     const activeId = active.id;
     const overId = over.id;
 
     const activeQuote = items.find((q) => q.id === activeId);
-    if (!activeQuote) return;
+    if (!activeQuote) {
+      setOriginalStatus(null);
+      return;
+    }
 
     const overColumn = COLUMNS.find((col) => col.id === overId);
     if (overColumn) {
-      updateStatus(activeId, overColumn.id);
+      // Solo actualizar si el estado realmente cambió
+      if (originalStatus !== overColumn.id) {
+        updateStatus(activeId, overColumn.id);
+      }
+      setOriginalStatus(null);
       return;
     }
+
     const overQuote = items.find((q) => q.id === overId);
     if (overQuote && activeQuote?.status === overQuote.status) {
       const oldIndex = items.findIndex((q) => q.id === activeId);
       const newIndex = items.findIndex((q) => q.id === overId);
       setItems(arrayMove(items, oldIndex, newIndex));
+      setOriginalStatus(null);
     } else if (overQuote) {
-      updateStatus(activeId, overQuote.status);
+      // Solo actualizar si el estado realmente cambió
+      if (originalStatus !== overQuote.status) {
+        updateStatus(activeId, overQuote.status);
+      }
+      setOriginalStatus(null);
     }
   }
 
