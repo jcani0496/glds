@@ -311,7 +311,6 @@ export default function AdminQuotes() {
     const status = quote?.status || "pending";
     setActiveId(event.active.id);
     setOriginalStatus(status);
-    console.log("🎯 Drag Start - Quote ID:", event.active.id, "Original Status:", status);
   }
 
   function handleDragOver(event) {
@@ -345,7 +344,6 @@ export default function AdminQuotes() {
     setActiveId(null);
 
     if (!over) {
-      console.log("❌ Drag End - Dropped outside, reverting");
       // Si se suelta fuera, revertir al estado original
       if (originalStatus) {
         setItems((prev) =>
@@ -372,17 +370,13 @@ export default function AdminQuotes() {
       }
     }
 
-    console.log("🎯 Drag End - Quote ID:", activeId, "Original:", originalStatus, "New:", newStatus);
-
     // Si no hay nuevo estado o es igual al original, no hacer nada
     if (!newStatus || newStatus === originalStatus) {
-      console.log("⚠️ No change detected, skipping update");
       setOriginalStatus(null);
       return;
     }
 
     // Actualizar en el servidor
-    console.log("✅ Updating status from", originalStatus, "to", newStatus);
     updateStatus(activeId, newStatus);
     setOriginalStatus(null);
   }

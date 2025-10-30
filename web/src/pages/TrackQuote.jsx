@@ -132,20 +132,32 @@ export default function TrackQuote() {
             </div>
 
             <div className="rounded-2xl border border-white/10 bg-white/[.04] p-5">
-              <h3 className="font-semibold mb-3">Línea de tiempo</h3>
+              <h3 className="font-semibold mb-4 flex items-center gap-2">
+                <span className="text-lg">📋</span>
+                Línea de tiempo
+              </h3>
               {events.length === 0 ? (
                 <p className="text-sm text-white/60">Aún no hay actividad registrada.</p>
               ) : (
-                <ol className="space-y-3 text-sm">
-                  {events.map((ev) => (
-                    <li key={ev.id} className="border-l border-white/10 pl-3">
-                      <p className="text-xs text-white/50">{new Date(ev.created_at).toLocaleString()}</p>
-                      <p className="font-medium">{eventLabel(ev.type)}</p>
-                      {ev.payload && (
-                        <p className="text-xs text-white/60 whitespace-pre-wrap">
-                          {typeof ev.payload === "string" ? ev.payload : JSON.stringify(ev.payload, null, 2)}
-                        </p>
-                      )}
+                <ol className="relative border-l-2 border-white/10 ml-2 space-y-6">
+                  {events.map((ev, idx) => (
+                    <li key={ev.id} className="ml-6 relative">
+                      <span className="absolute -left-[29px] flex items-center justify-center w-6 h-6 bg-glds-primary rounded-full ring-4 ring-[#0a0a0a]">
+                        {getEventIcon(ev.type)}
+                      </span>
+                      <div className="bg-white/[.03] rounded-lg p-3 border border-white/5">
+                        <time className="text-xs text-white/50 font-medium">
+                          {formatEventDate(ev.created_at)}
+                        </time>
+                        <h4 className="text-sm font-semibold mt-1 text-white">
+                          {eventLabel(ev.type)}
+                        </h4>
+                        {ev.payload && (
+                          <div className="mt-2 text-sm text-white/70">
+                            {formatEventPayload(ev.type, ev.payload)}
+                          </div>
+                        )}
+                      </div>
                     </li>
                   ))}
                 </ol>
@@ -156,6 +168,115 @@ export default function TrackQuote() {
       </div>
     </section>
   );
+}
+
+function getEventIcon(type) {
+  const icons = {
+    created: "✨",
+    status_changed: "🔄",
+    status_note: "💬",
+    reminder: "🔔",
+  };
+  return <span className="text-xs">{icons[type] || "📌"}</span>;
+}
+
+function formatEventDate(dateString) {
+  const date = new Date(dateString);
+  const now = new Date();
+  const diffMs = now - date;
+  const diffMins = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMs / 3600000);
+  const diffDays = Math.floor(diffMs / 86400000);
+
+  if (diffMins < 1) return "Hace un momento";
+  if (diffMins < 60) return `Hace ${diffMins} minuto${diffMins > 1 ? 's' : ''}`;
+  if (diffHours < 24) return `Hace ${diffHours} hora${diffHours > 1 ? 's' : ''}`;
+  if (diffDays < 7) return `Hace ${diffDays} día${diffDays > 1 ? 's' : ''}`;
+
+  return date.toLocaleDateString('es-ES', {
+    day: 'numeric',
+    month: 'long',
+    year: date.getFullYear() !== now.getFullYear() ? 'numeric' : undefined,
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+}
+
+function formatEventPayload(type, payload) {
+  if (typeof payload === 'string') {
+    return <p className="leading-relaxed">{payload}</p>;
+  }
+
+  switch (type) {
+    case "created":
+      return (
+        <div className="space-y-1">
+          {payload.customer_email && (
+            <p>📧 Cliente: <span className="font-medium">{payload.customer_email}</span></p>
+          )}
+          {payload.total_items && (
+            <p>📦 Productos solicitados: <span className="font-medium">{payload.total_items}</span></p>
+          )}
+        </div>
+      );
+
+    case "status_changed":
+      const statusLabels = {
+        pending: "Pendiente",
+        reviewing: "En Revisión",
+        sent: "Enviada",
+        approved: "Aprobada",
+        closed: "Cerrada",
+      };
+      const statusEmojis = {
+        pending: "⏳",
+        reviewing: "🔍",
+        sent: "📤",
+        approved: "✅",
+        closed: "🔒",
+      };
+      return (
+        <p className="flex items-center gap-2">
+          <span className="text-base">{statusEmojis[payload.status] || "📋"}</span>
+          <span>Nuevo estado: <span className="font-semibold text-glds-primary">{statusLabels[payload.status] || payload.status}</span></span>
+        </p>
+      );
+
+    case "reminder":
+      return (
+        <div className="space-y-1">
+          {payload.channel && (
+            <p>📢 Canal: <span className="font-medium capitalize">{payload.channel}</span></p>
+          )}
+          {payload.note && (
+            <p className="text-white/60 italic">"{payload.note}"</p>
+          )}
+        </div>
+      );
+
+    case "status_note":
+      return (
+        <p className="bg-white/5 border-l-2 border-glds-primary/50 pl-3 py-2 italic">
+          "{payload}"
+        </p>
+      );
+
+    default:
+      // Para cualquier otro tipo, intentar mostrar de forma legible
+      if (typeof payload === 'object') {
+        return (
+          <div className="space-y-1">
+            {Object.entries(payload).map(([key, value]) => (
+              <p key={key}>
+                <span className="text-white/50 capitalize">{key.replace(/_/g, ' ')}:</span>{' '}
+                <span className="font-medium">{String(value)}</span>
+              </p>
+            ))}
+          </div>
+        );
+      }
+      return <p>{String(payload)}</p>;
+  }
 }
 
 function eventLabel(type) {
@@ -169,6 +290,6 @@ function eventLabel(type) {
     case "reminder":
       return "Recordatorio enviado";
     default:
-      return type;
+      return type.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
   }
 }
