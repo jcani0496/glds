@@ -217,15 +217,15 @@ export function emailTemplate({ title, content, preheader = '' }) {
     <div class="email-container">
       <div class="email-header">
         <div class="logo">GLDS</div>
-        <div class="tagline">Global Logistics & Distribution Solutions</div>
+        <div class="tagline">Grupo Los Dos</div>
       </div>
-      
+
       <div class="email-body">
         <div class="content">
           ${content}
         </div>
       </div>
-      
+
       <div class="email-footer">
         <p class="footer-text">
           Este correo fue enviado por GLDS<br>
