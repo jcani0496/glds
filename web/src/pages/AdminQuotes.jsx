@@ -308,8 +308,10 @@ export default function AdminQuotes() {
 
   function handleDragStart(event) {
     const quote = items.find((q) => q.id === event.active.id);
+    const status = quote?.status || "pending";
     setActiveId(event.active.id);
-    setOriginalStatus(quote?.status || "pending");
+    setOriginalStatus(status);
+    console.log("🎯 Drag Start - Quote ID:", event.active.id, "Original Status:", status);
   }
 
   function handleDragOver(event) {
@@ -339,11 +341,17 @@ export default function AdminQuotes() {
 
   function handleDragEnd(event) {
     const { active, over } = event;
-    const draggedQuote = items.find((q) => q.id === active.id);
 
     setActiveId(null);
 
-    if (!over || !draggedQuote) {
+    if (!over) {
+      console.log("❌ Drag End - Dropped outside, reverting");
+      // Si se suelta fuera, revertir al estado original
+      if (originalStatus) {
+        setItems((prev) =>
+          prev.map((q) => (q.id === active.id ? { ...q, status: originalStatus } : q))
+        );
+      }
       setOriginalStatus(null);
       return;
     }
@@ -351,35 +359,32 @@ export default function AdminQuotes() {
     const activeId = active.id;
     const overId = over.id;
 
-    const activeQuote = items.find((q) => q.id === activeId);
-    if (!activeQuote) {
-      setOriginalStatus(null);
-      return;
-    }
+    // Determinar el nuevo estado basado en dónde se soltó
+    let newStatus = null;
 
     const overColumn = COLUMNS.find((col) => col.id === overId);
     if (overColumn) {
-      // Solo actualizar si el estado realmente cambió
-      if (originalStatus !== overColumn.id) {
-        updateStatus(activeId, overColumn.id);
+      newStatus = overColumn.id;
+    } else {
+      const overQuote = items.find((q) => q.id === overId);
+      if (overQuote) {
+        newStatus = overQuote.status;
       }
+    }
+
+    console.log("🎯 Drag End - Quote ID:", activeId, "Original:", originalStatus, "New:", newStatus);
+
+    // Si no hay nuevo estado o es igual al original, no hacer nada
+    if (!newStatus || newStatus === originalStatus) {
+      console.log("⚠️ No change detected, skipping update");
       setOriginalStatus(null);
       return;
     }
 
-    const overQuote = items.find((q) => q.id === overId);
-    if (overQuote && activeQuote?.status === overQuote.status) {
-      const oldIndex = items.findIndex((q) => q.id === activeId);
-      const newIndex = items.findIndex((q) => q.id === overId);
-      setItems(arrayMove(items, oldIndex, newIndex));
-      setOriginalStatus(null);
-    } else if (overQuote) {
-      // Solo actualizar si el estado realmente cambió
-      if (originalStatus !== overQuote.status) {
-        updateStatus(activeId, overQuote.status);
-      }
-      setOriginalStatus(null);
-    }
+    // Actualizar en el servidor
+    console.log("✅ Updating status from", originalStatus, "to", newStatus);
+    updateStatus(activeId, newStatus);
+    setOriginalStatus(null);
   }
 
   const filteredItems = items.filter((q) => {
